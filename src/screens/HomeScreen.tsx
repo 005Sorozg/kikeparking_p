@@ -7,12 +7,14 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { AppScreenProps } from "../types/navigation";
 import { parkingSpots } from "../services/parking";
 import { colors, radius, spacing } from "../styles/theme";
 
-// Pantalla principal: aquí el usuario busca parqueaderos por barrio ypuede filtrar para ver solo los que están disponibles.
+// Pantalla principal: aquí el usuario busca parqueaderos por barrio y puede filtrar para ver solo los que están disponibles.
 export function HomeScreen({ navigation }: AppScreenProps<"Home">) {
+  const insets = useSafeAreaInsets();
   const [busqueda, setBusqueda] = useState("");
   const [soloDisponibles, setSoloDisponibles] = useState(false);
 
@@ -30,7 +32,7 @@ export function HomeScreen({ navigation }: AppScreenProps<"Home">) {
   }, [busqueda, soloDisponibles]);
 
   return (
-    <View style={styles.contenedor}>
+      <View style={[styles.contenedor, { paddingTop: insets.top + spacing.md }]}>
       <TextInput
         style={styles.buscador}
         value={busqueda}
