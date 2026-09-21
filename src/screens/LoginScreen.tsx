@@ -18,13 +18,8 @@ export function LoginScreen({ navigation }: AppScreenProps<"Login">) {
   const [clave, setClave] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  //Se ejecuta cuando el usuario toca el botón "Continuar".
+  // Se ejecuta cuando el usuario toca el botón "Continuar".
   const continuar = () => {
-    if (!correo.includes("@")) {
-      setError("Escribe un correo válido.");
-      return;
-    }
-      const continuar = () => {
     if (!correo.includes("@")) {
       setError("Escribe un correo válido.");
       return;
@@ -34,10 +29,7 @@ export function LoginScreen({ navigation }: AppScreenProps<"Login">) {
       return;
     }
     setError(null);
-    navigation.navigate("Home");
-  };
-    setError(null);
-    navigation.navigate("Home");
+    navigation.replace("Home");
   };
 
   return (
