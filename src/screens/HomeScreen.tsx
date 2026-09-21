@@ -8,12 +8,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { AppScreenProps } from "../types/navigation";
+import type { MainTabScreenProps } from "../types/navigation";
 import { parkingSpots } from "../services/parking";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Pantalla principal: aquí el usuario busca parqueaderos por barrio y puede filtrar para ver solo los que están disponibles.
-export function HomeScreen({ navigation }: AppScreenProps<"Home">) {
+export function HomeScreen({ navigation }: MainTabScreenProps<"Home">) {
   const insets = useSafeAreaInsets();
   const [busqueda, setBusqueda] = useState("");
   const [soloDisponibles, setSoloDisponibles] = useState(false);
