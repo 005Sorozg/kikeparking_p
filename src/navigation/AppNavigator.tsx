@@ -5,6 +5,7 @@ import type { AppStackParamList } from "../types/navigation";
 import { LoginScreen } from "../screens/LoginScreen";
 import { RegisterScreen } from "../screens/RegisterScreen";
 import { HomeScreen } from "../screens/HomeScreen";
+import { ParkingDetailScreen } from "../screens/ParkingDetailScreen";
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -26,7 +27,12 @@ export function AppNavigator() {
           name="Home"
           component={HomeScreen}
           options={{ headerShown: false }}
-        />    
+        />
+          <Stack.Screen
+          name="ParkingDetail"
+          component={ParkingDetailScreen}
+          options={{ title: "Detalle del parqueadero" }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
