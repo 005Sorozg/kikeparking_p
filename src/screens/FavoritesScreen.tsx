@@ -66,6 +66,7 @@ export function FavoritesScreen() {
                   borderRadius: radius.lg,
                 }}
                 iconSize={36}
+                source={item.imagen}
               />
               <Text style={styles.nombre} numberOfLines={1}>
                 {item.titulo}

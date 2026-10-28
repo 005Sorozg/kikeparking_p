@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import {
+  Image,
+  ImageSourcePropType,
+  ImageStyle,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -156,16 +159,31 @@ export function Chip({
   );
 }
 
-// Caja gris con el ícono de imagen: el lugar de las fotos que aún no existen.
+// Muestra la foto si se le pasa `source`; si no, la caja gris con el ícono de imagen.
 export function ImagePlaceholder({
   style,
   iconSize = 28,
   round,
+  source,
 }: {
   style?: StyleProp<ViewStyle>;
   iconSize?: number;
   round?: boolean;
+  source?: ImageSourcePropType;
 }) {
+  if (source) {
+    return (
+      <Image
+        source={source}
+        resizeMode="cover"
+        style={[
+          { backgroundColor: colors.imagePlaceholder },
+          round && { borderRadius: radius.full },
+          style as StyleProp<ImageStyle>,
+        ]}
+      />
+    );
+  }
   return (
     <View
       style={[styles.placeholder, round && { borderRadius: radius.full }, style]}
@@ -176,7 +194,27 @@ export function ImagePlaceholder({
 }
 
 // Avatar circular gris con una silueta de persona.
-export function AvatarPlaceholder({ size = 52 }: { size?: number }) {
+export function AvatarPlaceholder({
+  size = 52,
+  source,
+}: {
+  size?: number;
+  source?: ImageSourcePropType;
+}) {
+  if (source) {
+    return (
+      <Image
+        source={source}
+        resizeMode="cover"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: colors.imagePlaceholder,
+        }}
+      />
+    );
+  }
   return (
     <View
       style={[

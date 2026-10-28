@@ -1,3 +1,5 @@
+import type { ImageSourcePropType } from "react-native";
+
 // Conversaciones ficticias (se reemplazan por la API más adelante).
 export type ConversationKind = "host" | "amigo";
 
@@ -9,6 +11,7 @@ export interface Conversation {
   detalle: string;
   fecha: string;
   esGrupo: boolean;
+  imagen?: ImageSourcePropType;
 }
 
 export const conversations: Conversation[] = [
@@ -20,6 +23,7 @@ export const conversations: Conversation[] = [
     detalle: "1 - 2 de may • Sabaneta",
     fecha: "03 de may.",
     esGrupo: true,
+    imagen: require("../../assets/images/imagen-fernando.jpeg"),
   },
   {
     id: "2",
@@ -29,6 +33,7 @@ export const conversations: Conversation[] = [
     detalle: "18 - 19 de abr • Santa Elena",
     fecha: "19 de abr.",
     esGrupo: true,
+    imagen: require("../../assets/images/imagen-victor.jpg"),
   },
   {
     id: "3",
@@ -38,6 +43,7 @@ export const conversations: Conversation[] = [
     detalle: "3 - 4 de feb • Medellín",
     fecha: "5 de feb.",
     esGrupo: true,
+    imagen: require("../../assets/images/imagen-isabel.jpg"),
   },
   {
     id: "4",
@@ -47,5 +53,6 @@ export const conversations: Conversation[] = [
     detalle: "Mensaje directo",
     fecha: "28 de feb.",
     esGrupo: false,
+    imagen: require("../../assets/images/imagen-juan-esteban.jpeg"),
   },
 ];

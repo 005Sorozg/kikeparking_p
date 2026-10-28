@@ -34,7 +34,7 @@ export function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.contenido}>
         <View style={[styles.tarjeta, styles.tarjetaPerfil]}>
           <View style={styles.perfil}>
-            <AvatarPlaceholder size={84} />
+            <AvatarPlaceholder size={84} source={require("../../assets/images/imagen-fernando.jpeg")} />
             <Text style={styles.nombre}>Daniel</Text>
             <Text style={styles.ubicacion}>Medellín, Colombia</Text>
           </View>
@@ -57,6 +57,7 @@ export function ProfileScreen() {
             <ImagePlaceholder
               style={{ width: 64, height: 64, borderRadius: radius.sm }}
               iconSize={26}
+              source={require("../../assets/images/laureles-2026.jpeg")}
             />
             <Text style={styles.miniTexto}>Reservas anteriores</Text>
           </View>
@@ -65,13 +66,14 @@ export function ProfileScreen() {
               style={{ width: 64, height: 64 }}
               iconSize={26}
               round
+              source={require("../../assets/images/imagen-isabel.jpg")}
             />
             <Text style={styles.miniTexto}>Amigos</Text>
           </View>
         </View>
 
         <Pressable style={[styles.tarjeta, styles.host]}>
-          <AvatarPlaceholder size={56} />
+          <AvatarPlaceholder size={56} source={require("../../assets/images/imagen-fernando.jpeg")} />
           <View style={styles.hostTextos}>
             <Text style={styles.hostTitulo}>Conviértete en host</Text>
             <Text style={styles.hostDescripcion}>

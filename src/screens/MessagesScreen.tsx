@@ -69,13 +69,17 @@ function FilaConversacion({ conversacion }: { conversacion: Conversation }) {
     <Pressable style={styles.fila}>
       {conversacion.esGrupo ? (
         <View style={styles.avatarGrupo}>
-          <ImagePlaceholder style={styles.avatarImagen} iconSize={22} />
+          <ImagePlaceholder
+            style={styles.avatarImagen}
+            iconSize={22}
+            source={conversacion.imagen}
+          />
           <View style={styles.avatarMini}>
             <Feather name="user" size={10} color={colors.imageIcon} />
           </View>
         </View>
       ) : (
-        <AvatarPlaceholder size={52} />
+        <AvatarPlaceholder size={52} source={conversacion.imagen} />
       )}
 
       <View style={styles.textos}>
