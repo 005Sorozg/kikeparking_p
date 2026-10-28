@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import type { MainTabScreenProps } from "../types/navigation";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Conversation, conversations } from "../services/messages";
@@ -20,7 +21,7 @@ const FILTROS: { id: Filtro; etiqueta: string }[] = [
 ];
 
 // Mensajes: chips para filtrar entre todos, hosts y amigos (Estados A, B y C).
-export function MessagesScreen() {
+export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
   const insets = useSafeAreaInsets();
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
@@ -57,16 +58,26 @@ export function MessagesScreen() {
 
       <ScrollView contentContainerStyle={styles.lista}>
         {visibles.map((c) => (
-          <FilaConversacion key={c.id} conversacion={c} />
+          <FilaConversacion
+            key={c.id}
+            conversacion={c}
+            onPress={() => navigation.navigate("Chat", { conversationId: c.id })}
+          />
         ))}
       </ScrollView>
     </View>
   );
 }
 
-function FilaConversacion({ conversacion }: { conversacion: Conversation }) {
+function FilaConversacion({
+  conversacion,
+  onPress,
+}: {
+  conversacion: Conversation;
+  onPress: () => void;
+}) {
   return (
-    <Pressable style={styles.fila}>
+    <Pressable style={styles.fila} onPress={onPress}>
       {conversacion.esGrupo ? (
         <View style={styles.avatarGrupo}>
           <ImagePlaceholder

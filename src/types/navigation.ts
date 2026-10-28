@@ -20,6 +20,9 @@ export type AppStackParamList = {
   // "Home" es el contenedor de las pestañas.
   Home: NavigatorScreenParams<MainTabParamList> | undefined;
   ParkingDetail: { parkingSpotId: string };
+  Booking: { parkingSpotId: string };
+  MyBookings: undefined;
+  Chat: { conversationId: string };
 };
 
 export type AppScreenProps<T extends keyof AppStackParamList> =

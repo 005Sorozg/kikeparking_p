@@ -12,7 +12,18 @@ import { FavoritesScreen } from "../screens/FavoritesScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { ParkingDetailScreen } from "../screens/ParkingDetailScreen";
+import { BookingScreen } from "../screens/BookingScreen";
+import { MyBookingsScreen } from "../screens/MyBookingsScreen";
+import { ChatScreen } from "../screens/ChatScreen";
+import { tituloDe } from "../services/chat";
 import { colors } from "../styles/theme";
+
+// Encabezado de las pantallas que se abren encima de las pestañas.
+const encabezado = {
+  headerShown: true,
+  headerShadowVisible: false,
+  headerTintColor: colors.text,
+} as const;
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -96,6 +107,24 @@ export function AppNavigator() {
             headerShadowVisible: false,
             headerTintColor: colors.text,
           }}
+        />
+        <Stack.Screen
+          name="Booking"
+          component={BookingScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="MyBookings"
+          component={MyBookingsScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="Chat"
+          component={ChatScreen}
+          options={({ route }) => ({
+            ...encabezado,
+            title: tituloDe(route.params.conversationId),
+          })}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import type { MainTabScreenProps } from "../types/navigation";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -21,7 +22,7 @@ const OPCIONES: { icono: "settings" | "help-circle"; texto: string }[] = [
   { icono: "help-circle", texto: "Obtén ayuda" },
 ];
 
-export function ProfileScreen() {
+export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -53,14 +54,17 @@ export function ProfileScreen() {
         </View>
 
         <View style={styles.fila}>
-          <View style={[styles.tarjeta, styles.tarjetaMini]}>
+          <Pressable
+            style={[styles.tarjeta, styles.tarjetaMini]}
+            onPress={() => navigation.navigate("MyBookings")}
+          >
             <ImagePlaceholder
               style={{ width: 64, height: 64, borderRadius: radius.sm }}
               iconSize={26}
               source={require("../../assets/images/laureles-2026.jpeg")}
             />
             <Text style={styles.miniTexto}>Reservas anteriores</Text>
-          </View>
+          </Pressable>
           <View style={[styles.tarjeta, styles.tarjetaMini]}>
             <ImagePlaceholder
               style={{ width: 64, height: 64 }}

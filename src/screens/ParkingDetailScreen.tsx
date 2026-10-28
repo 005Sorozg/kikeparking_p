@@ -9,6 +9,7 @@ import { colors, radius, spacing } from "../styles/theme";
 // Detalle de un parqueadero (el Figma aún no tiene esta pantalla: usa el mismo estilo del resto).
 export function ParkingDetailScreen({
   route,
+  navigation,
 }: AppScreenProps<"ParkingDetail">) {
   const spot = parkingSpots.find((p) => p.id === route.params.parkingSpotId);
 
@@ -55,11 +56,12 @@ export function ParkingDetailScreen({
         {spot.disponible ? "Disponible" : "Ocupado"}
       </Text>
 
-      {/* La reserva se implementa después */}
       <View style={styles.boton}>
         <PrimaryButton
           label="Reservar"
-          onPress={() => {}}
+          onPress={() =>
+            navigation.navigate("Booking", { parkingSpotId: spot.id })
+          }
           disabled={!spot.disponible}
         />
       </View>
