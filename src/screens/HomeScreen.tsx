@@ -2,92 +2,153 @@ import React, { useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MainTabScreenProps } from "../types/navigation";
-import { parkingSpots } from "../services/parking";
-import { colors, radius, spacing } from "../styles/theme";
+import {
+  FILTROS_RAPIDOS,
+  formatearPrecio,
+  parkingSpots,
+} from "../services/parking";
+import { Chip, ImagePlaceholder } from "../components/ui";
+import { colors, radius, shadow, spacing } from "../styles/theme";
 
-// Pantalla principal: aquí el usuario busca parqueaderos por barrio y puede filtrar para ver solo los que están disponibles.
-export function HomeScreen({ navigation }: MainTabScreenProps<"Home">) {
+// Inicio - Explorar: buscador, chips de filtros y tarjetas grandes de parqueaderos.
+export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const insets = useSafeAreaInsets();
   const [busqueda, setBusqueda] = useState("");
-  const [soloDisponibles, setSoloDisponibles] = useState(false);
+  const [filtros, setFiltros] = useState<string[]>([]);
+  // Favoritos locales: arrancan con lo que trae cada parqueadero.
+  const [favoritos, setFavoritos] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(parkingSpots.map((p) => [p.id, p.favorito])),
+  );
 
-  // Esto recalcula la lista filtrada cada vez que cambia la búsqueda
-  // o el filtro, sin tener que tocar los datos originales.
+  const alternarFiltro = (filtro: string) =>
+    setFiltros((actuales) =>
+      actuales.includes(filtro)
+        ? actuales.filter((f) => f !== filtro)
+        : [...actuales, filtro],
+    );
+
+  const alternarFavorito = (id: string) =>
+    setFavoritos((actuales) => ({ ...actuales, [id]: !actuales[id] }));
+
   const resultados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
     return parkingSpots.filter((p) => {
       const coincide =
         texto.length === 0 ||
         p.barrio.toLowerCase().includes(texto) ||
+        p.ciudad.toLowerCase().includes(texto) ||
         p.titulo.toLowerCase().includes(texto);
-      return coincide && (!soloDisponibles || p.disponible);
+      const cumpleFiltros = filtros.every((f) => p.etiquetas.includes(f));
+      return coincide && cumpleFiltros;
     });
-  }, [busqueda, soloDisponibles]);
+  }, [busqueda, filtros]);
 
   return (
-      <View style={[styles.contenedor, { paddingTop: insets.top + spacing.md }]}>
-      <TextInput
-        style={styles.buscador}
-        value={busqueda}
-        onChangeText={setBusqueda}
-        placeholder="¿Dónde necesitas estacionar?"
-        placeholderTextColor={colors.textLight}
-      />
+    <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
+      <View style={styles.buscador}>
+        <Feather name="search" size={16} color={colors.text} />
+        <View style={styles.buscadorTextos}>
+          <Text style={styles.buscadorTitulo}>¿Dónde necesitas estacionar?</Text>
+          <TextInput
+            style={styles.buscadorInput}
+            value={busqueda}
+            onChangeText={setBusqueda}
+            placeholder="Buscar parqueaderos cercanos"
+            placeholderTextColor={colors.textLight}
+          />
+        </View>
+      </View>
 
-      <Pressable
-        style={[styles.filtro, soloDisponibles && styles.filtroActivo]}
-        onPress={() => setSoloDisponibles((v) => !v)}
-      >
-        <Text
-          style={[
-            styles.filtroTexto,
-            soloDisponibles && styles.filtroTextoActivo,
-          ]}
+      <View style={styles.filtrosBorde}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtros}
         >
-          Solo disponibles
-        </Text>
-      </Pressable>
+          <Chip label="Filtrar" icon="filter" />
+          {FILTROS_RAPIDOS.map((filtro) => (
+            <Chip
+              key={filtro}
+              label={filtro}
+              selected={filtros.includes(filtro)}
+              onPress={() => alternarFiltro(filtro)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       <FlatList
         data={resultados}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.lista}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.tarjeta}
-            onPress={() =>
-              navigation.navigate("ParkingDetail", { parkingSpotId: item.id })
-            }
-          >
-            {/* Espacio de la foto*/}
-            <View style={styles.foto}>
-              <Text style={styles.fotoIcono}>🅿️</Text>
-            </View>
-
-            <View style={styles.info}>
-              <View style={styles.filaTitulo}>
-                <Text style={styles.titulo} numberOfLines={1}>
-                  {item.titulo}
-                </Text>
-                <Text style={styles.calificacion}>★ {item.calificacion}</Text>
+        ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
+        renderItem={({ item }) => {
+          const esFavorito = favoritos[item.id];
+          return (
+            <Pressable
+              style={styles.tarjeta}
+              onPress={() =>
+                navigation.navigate("ParkingDetail", { parkingSpotId: item.id })
+              }
+            >
+              <View style={styles.fotoContenedor}>
+                <ImagePlaceholder
+                  style={styles.foto}
+                  iconSize={96}
+                  source={item.imagen}
+                />
+                <Pressable
+                  style={styles.corazon}
+                  hitSlop={8}
+                  onPress={() => alternarFavorito(item.id)}
+                >
+                  <Ionicons
+                    name={esFavorito ? "heart" : "heart-outline"}
+                    size={16}
+                    color={esFavorito ? colors.primary : "#B5B5B5"}
+                  />
+                </Pressable>
               </View>
-              <Text style={styles.barrio}>{item.barrio}</Text>
-              <Text style={styles.precio}>
-                ${item.precioHora.toLocaleString("es-CO")} / hora
-              </Text>
-              {!item.disponible && (
-                <Text style={styles.ocupado}>Ocupado</Text>
-              )}
-            </View>
-          </Pressable>
-        )}
+
+              <View style={styles.info}>
+                <View style={styles.filaTitulo}>
+                  <Text style={styles.titulo} numberOfLines={1}>
+                    {item.titulo}
+                  </Text>
+                  <View style={styles.calificacion}>
+                    <Ionicons name="star" size={14} color={colors.black} />
+                    <Text style={styles.calificacionTexto}>
+                      {item.calificacion}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.detalle}>
+                  {item.barrio}, {item.ciudad}
+                </Text>
+                <Text style={styles.detalle}>
+                  {item.distanciaKm.toFixed(1)} km de distancia
+                </Text>
+                <Text style={styles.detalle}>
+                  {item.vehiculos} {item.vehiculos === 1 ? "vehículo" : "vehículos"}
+                </Text>
+                <Text style={styles.detalle}>{item.etiquetas.join(" • ")}</Text>
+                <Text style={styles.precio}>
+                  {formatearPrecio(item.precioDia)}
+                  <Text style={styles.precioUnidad}> / día</Text>
+                </Text>
+              </View>
+            </Pressable>
+          );
+        }}
         ListEmptyComponent={
           <Text style={styles.vacio}>
             No encontramos parqueaderos con esa búsqueda.
@@ -102,63 +163,74 @@ const styles = StyleSheet.create({
   contenedor: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
   },
   buscador: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    height: 54,
+    marginHorizontal: 18,
+    paddingHorizontal: 18,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.text,
-    marginBottom: spacing.sm,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.white,
+    ...shadow,
   },
-  filtro: {
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.md,
+  buscadorTextos: {
+    flex: 1,
   },
-  filtroActivo: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filtroTexto: {
-    color: colors.textLight,
-    fontWeight: "600",
+  buscadorTitulo: {
     fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
   },
-  filtroTextoActivo: {
-    color: colors.white,
+  buscadorInput: {
+    height: 16,
+    padding: 0,
+    fontSize: 11,
+    color: colors.text,
+  },
+  filtrosBorde: {
+    marginTop: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  filtros: {
+    paddingHorizontal: 18,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
   lista: {
+    padding: 18,
     paddingBottom: spacing.xl,
   },
   tarjeta: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
-    overflow: "hidden",
+    width: "100%",
+  },
+  fotoContenedor: {
+    width: "100%",
+    aspectRatio: 1,
   },
   foto: {
-    height: 120,
-    backgroundColor: "#EFEFEF",
+    width: "100%",
+    height: "100%",
+    borderRadius: radius.lg,
+  },
+  corazon: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
   },
-  fotoIcono: {
-    fontSize: 40,
-  },
   info: {
-    padding: spacing.md,
+    paddingHorizontal: 4,
+    paddingTop: spacing.sm,
   },
   filaTitulo: {
     flexDirection: "row",
@@ -166,31 +238,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   titulo: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.text,
     flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.text,
   },
   calificacion: {
-    color: colors.primary,
-    fontWeight: "600",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     marginLeft: spacing.sm,
   },
-  barrio: {
+  calificacionTexto: {
+    fontSize: 12,
+    color: colors.text,
+  },
+  detalle: {
+    fontSize: 12,
     color: colors.textLight,
-    fontSize: 13,
-    marginTop: 2,
+    marginTop: 3,
   },
   precio: {
-    color: colors.text,
+    fontSize: 14,
     fontWeight: "700",
-    marginTop: spacing.xs,
+    color: colors.text,
+    marginTop: 6,
   },
-  ocupado: {
-    color: colors.primary,
-    fontWeight: "600",
-    marginTop: spacing.xs,
+  precioUnidad: {
     fontSize: 12,
+    fontWeight: "400",
   },
   vacio: {
     textAlign: "center",

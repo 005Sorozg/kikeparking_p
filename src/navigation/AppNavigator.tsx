@@ -1,17 +1,29 @@
 import React from "react";
-import { Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Feather } from "@expo/vector-icons";
 import type { AppStackParamList, MainTabParamList } from "../types/navigation";
 import { LoginScreen } from "../screens/LoginScreen";
+import { LoginPasswordScreen } from "../screens/LoginPasswordScreen";
 import { RegisterScreen } from "../screens/RegisterScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { FavoritesScreen } from "../screens/FavoritesScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { ParkingDetailScreen } from "../screens/ParkingDetailScreen";
+import { BookingScreen } from "../screens/BookingScreen";
+import { MyBookingsScreen } from "../screens/MyBookingsScreen";
+import { ChatScreen } from "../screens/ChatScreen";
+import { tituloDe } from "../services/chat";
 import { colors } from "../styles/theme";
+
+// Encabezado de las pantallas que se abren encima de las pestañas.
+const encabezado = {
+  headerShown: true,
+  headerShadowVisible: false,
+  headerTintColor: colors.text,
+} as const;
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -21,8 +33,14 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textLight,
+        tabBarInactiveTintColor: "#4A4A4A",
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
+        tabBarStyle: {
+          backgroundColor: colors.white,
+          borderTopColor: colors.borderLight,
+        },
       }}
     >
       <Tab.Screen
@@ -30,8 +48,9 @@ function MainTabs() {
         component={HomeScreen}
         options={{
           title: "Explorar",
-          headerShown: false,
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🔍</Text>,
+          tabBarIcon: ({ color }) => (
+            <Feather name="search" size={22} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -39,7 +58,9 @@ function MainTabs() {
         component={FavoritesScreen}
         options={{
           title: "Favoritos",
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>♡</Text>,
+          tabBarIcon: ({ color }) => (
+            <Feather name="heart" size={22} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -47,7 +68,9 @@ function MainTabs() {
         component={MessagesScreen}
         options={{
           title: "Mensajes",
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>💬</Text>,
+          tabBarIcon: ({ color }) => (
+            <Feather name="message-circle" size={22} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -55,7 +78,9 @@ function MainTabs() {
         component={ProfileScreen}
         options={{
           title: "Perfil",
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>👤</Text>,
+          tabBarIcon: ({ color }) => (
+            <Feather name="user" size={22} color={color} />
+          ),
         }}
       />
     </Tab.Navigator>
@@ -65,27 +90,41 @@ function MainTabs() {
 export function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Register"
-          component={RegisterScreen}
-          options={{ title: "Crear cuenta" }}
-        />
-        {/* "Home" ahora muestra la barra de pestañas */}
-        <Stack.Screen
-          name="Home"
-          component={MainTabs}
-          options={{ headerShown: false }}
-        />
+      <Stack.Navigator
+        initialRouteName="Login"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="LoginPassword" component={LoginPasswordScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="Home" component={MainTabs} />
         <Stack.Screen
           name="ParkingDetail"
           component={ParkingDetailScreen}
-          options={{ title: "Detalle del parqueadero" }}
+          options={{
+            headerShown: true,
+            title: "",
+            headerShadowVisible: false,
+            headerTintColor: colors.text,
+          }}
+        />
+        <Stack.Screen
+          name="Booking"
+          component={BookingScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="MyBookings"
+          component={MyBookingsScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="Chat"
+          component={ChatScreen}
+          options={({ route }) => ({
+            ...encabezado,
+            title: tituloDe(route.params.conversationId),
+          })}
         />
       </Stack.Navigator>
     </NavigationContainer>
