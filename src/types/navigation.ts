@@ -13,13 +13,13 @@ export type MainTabParamList = {
   Profile: undefined;
 };
 
-// "Home" ahora es el contenedor de las pestañas.
 export type AppStackParamList = {
   Login: undefined;
+  LoginPassword: { identifier: string };
   Register: undefined;
+  // "Home" es el contenedor de las pestañas.
   Home: NavigatorScreenParams<MainTabParamList> | undefined;
   ParkingDetail: { parkingSpotId: string };
-  MyReservations: undefined;
 };
 
 export type AppScreenProps<T extends keyof AppStackParamList> =
@@ -27,7 +27,7 @@ export type AppScreenProps<T extends keyof AppStackParamList> =
 
 // Props de las pantallas que viven dentro de las pestañas.
 export type MainTabScreenProps<T extends keyof MainTabParamList> =
-  CompositeScreenProps
+  CompositeScreenProps<
     BottomTabScreenProps<MainTabParamList, T>,
     NativeStackScreenProps<AppStackParamList>
   >;

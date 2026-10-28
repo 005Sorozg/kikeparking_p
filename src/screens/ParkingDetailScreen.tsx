@@ -1,11 +1,12 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { AppScreenProps } from "../types/navigation";
-import { parkingSpots } from "../services/parking";
+import { formatearPrecio, parkingSpots } from "../services/parking";
+import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
-// Pantalla de detalle: muestra la información completa de un parqueadero.
-// Recibe el id por la navegación y busca el parqueadero en los datos.
+// Detalle de un parqueadero (el Figma aún no tiene esta pantalla: usa el mismo estilo del resto).
 export function ParkingDetailScreen({
   route,
 }: AppScreenProps<"ParkingDetail">) {
@@ -24,33 +25,40 @@ export function ParkingDetailScreen({
       style={styles.contenedor}
       contentContainerStyle={styles.contenido}
     >
-      <View style={styles.foto}>
-        <Text style={styles.fotoIcono}>🅿️</Text>
-      </View>
+      <ImagePlaceholder style={styles.foto} iconSize={96} />
 
       <View style={styles.filaTitulo}>
         <Text style={styles.titulo}>{spot.titulo}</Text>
-        <Text style={styles.calificacion}>★ {spot.calificacion}</Text>
+        <View style={styles.calificacion}>
+          <Ionicons name="star" size={14} color={colors.black} />
+          <Text style={styles.calificacionTexto}>{spot.calificacion}</Text>
+        </View>
       </View>
 
-      <Text style={styles.barrio}>
-        {spot.barrio} · {spot.direccion}
+      <Text style={styles.detalle}>
+        {spot.barrio}, {spot.ciudad} · {spot.direccion}
       </Text>
+      <Text style={styles.detalle}>
+        {spot.distanciaKm.toFixed(1)} km de distancia
+      </Text>
+      <Text style={styles.detalle}>{spot.etiquetas.join(" • ")}</Text>
+
       <Text style={styles.precio}>
-        ${spot.precioHora.toLocaleString("es-CO")} / hora
+        {formatearPrecio(spot.precioDia)}
+        <Text style={styles.precioUnidad}> / día</Text>
       </Text>
       <Text style={[styles.estado, !spot.disponible && styles.estadoOcupado]}>
         {spot.disponible ? "Disponible" : "Ocupado"}
       </Text>
 
-      {/* Por ahora el botón no hace nada, la reserva se implementa después */}
-      <Pressable
-        style={[styles.boton, !spot.disponible && styles.botonDeshabilitado]}
-        disabled={!spot.disponible}
-        onPress={() => {}}
-      >
-        <Text style={styles.botonTexto}>Reservar</Text>
-      </Pressable>
+      {/* La reserva se implementa después */}
+      <View style={styles.boton}>
+        <PrimaryButton
+          label="Reservar"
+          onPress={() => {}}
+          disabled={!spot.disponible}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -61,7 +69,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   contenido: {
-    padding: spacing.md,
+    padding: 18,
   },
   centro: {
     flex: 1,
@@ -73,15 +81,10 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
   foto: {
-    height: 200,
-    backgroundColor: "#EFEFEF",
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: radius.lg,
     marginBottom: spacing.md,
-  },
-  fotoIcono: {
-    fontSize: 56,
   },
   filaTitulo: {
     flexDirection: "row",
@@ -90,46 +93,45 @@ const styles = StyleSheet.create({
   },
   titulo: {
     flex: 1,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "700",
     color: colors.text,
   },
   calificacion: {
-    color: colors.primary,
-    fontWeight: "600",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     marginLeft: spacing.sm,
   },
-  barrio: {
+  calificacionTexto: {
+    fontSize: 12,
+    color: colors.text,
+  },
+  detalle: {
+    fontSize: 12,
     color: colors.textLight,
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
   precio: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.md,
   },
+  precioUnidad: {
+    fontSize: 12,
+    fontWeight: "400",
+  },
   estado: {
-    color: "#2E7D32",
+    fontSize: 12,
     fontWeight: "600",
+    color: "#2E7D32",
     marginTop: spacing.xs,
   },
   estadoOcupado: {
     color: colors.primary,
   },
   boton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.md,
-    alignItems: "center",
     marginTop: spacing.lg,
-  },
-  botonDeshabilitado: {
-    backgroundColor: colors.border,
-  },
-  botonTexto: {
-    color: colors.white,
-    fontWeight: "700",
-    fontSize: 16,
   },
 });
