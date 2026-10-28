@@ -25,7 +25,11 @@ export function ParkingDetailScreen({
       style={styles.contenedor}
       contentContainerStyle={styles.contenido}
     >
-      <ImagePlaceholder style={styles.foto} iconSize={96} />
+      <ImagePlaceholder
+        style={styles.foto}
+        iconSize={96}
+        source={spot.imagen}
+      />
 
       <View style={styles.filaTitulo}>
         <Text style={styles.titulo}>{spot.titulo}</Text>
@@ -81,8 +85,9 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
   foto: {
-    width: "100%",
-    aspectRatio: 1,
+    width: 280,
+    height: 280,
+    alignSelf: "center",
     borderRadius: radius.lg,
     marginBottom: spacing.md,
   },

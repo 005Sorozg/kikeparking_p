@@ -1,3 +1,5 @@
+import type { ImageSourcePropType } from "react-native";
+
 // Datos ficticios: más adelante se reemplazan por llamadas reales a la API.
 
 export interface ParkingSpot {
@@ -13,6 +15,8 @@ export interface ParkingSpot {
   disponible: boolean;
   calificacion: number;
   favorito: boolean;
+  // Foto local por ahora; con el back será { uri: "https://..." }.
+  imagen?: ImageSourcePropType;
 }
 
 export const FILTROS_RAPIDOS = [
@@ -28,6 +32,7 @@ export const formatearPrecio = (valor: number) =>
 export const parkingSpots: ParkingSpot[] = [
   {
     id: "1",
+    imagen: require("../../assets/images/garaje-techado.jpeg"),
     titulo: "Garaje techado con vigilancia",
     barrio: "Laureles",
     ciudad: "Medellín",
@@ -42,6 +47,7 @@ export const parkingSpots: ParkingSpot[] = [
   },
   {
     id: "2",
+    imagen: require("../../assets/images/celda-unidad.jpg"),
     titulo: "Celda en unidad cerrada",
     barrio: "El Poblado",
     ciudad: "Medellín",
@@ -56,6 +62,7 @@ export const parkingSpots: ParkingSpot[] = [
   },
   {
     id: "3",
+    imagen: require("../../assets/images/parqueadero-descubierto.jpg"),
     titulo: "Parqueadero descubierto",
     barrio: "Belén",
     ciudad: "Medellín",
@@ -70,6 +77,7 @@ export const parkingSpots: ParkingSpot[] = [
   },
   {
     id: "4",
+    imagen: require("../../assets/images/garaje-familiar.jpeg"),
     titulo: "Garaje familiar",
     barrio: "Envigado",
     ciudad: "Antioquia",

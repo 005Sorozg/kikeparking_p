@@ -95,14 +95,16 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
           const esFavorito = favoritos[item.id];
           return (
             <Pressable
+              style={styles.tarjeta}
               onPress={() =>
                 navigation.navigate("ParkingDetail", { parkingSpotId: item.id })
               }
             >
-              <View>
+              <View style={styles.fotoContenedor}>
                 <ImagePlaceholder
                   style={styles.foto}
                   iconSize={96}
+                  source={item.imagen}
                 />
                 <Pressable
                   style={styles.corazon}
@@ -203,9 +205,16 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: spacing.xl,
   },
-  foto: {
+  tarjeta: {
+    width: "100%",
+  },
+  fotoContenedor: {
     width: "100%",
     aspectRatio: 1,
+  },
+  foto: {
+    width: "100%",
+    height: "100%",
     borderRadius: radius.lg,
   },
   corazon: {
@@ -220,7 +229,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   info: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingTop: spacing.sm,
   },
   filaTitulo: {
