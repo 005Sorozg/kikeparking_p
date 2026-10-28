@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { CommonActions } from "@react-navigation/native";
 import type { MainTabScreenProps } from "../types/navigation";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,7 +25,11 @@ const OPCIONES: { icono: "settings" | "help-circle"; texto: string }[] = [
 
 export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
   const insets = useSafeAreaInsets();
-
+    const cerrarSesion = () => {
+    navigation.dispatch(
+      CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
+    );
+  };
   return (
     <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.acciones}>
@@ -76,17 +81,6 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
           </View>
         </View>
 
-        <Pressable style={[styles.tarjeta, styles.host]}>
-          <AvatarPlaceholder size={56} source={require("../../assets/images/imagen-fernando.jpeg")} />
-          <View style={styles.hostTextos}>
-            <Text style={styles.hostTitulo}>Conviértete en host</Text>
-            <Text style={styles.hostDescripcion}>
-              Empieza a anfitrionar y genera ingresos adicionales, ¡es muy
-              sencillo!
-            </Text>
-          </View>
-        </Pressable>
-
         <View style={styles.opciones}>
           {OPCIONES.map((o) => (
             <Pressable key={o.texto} style={styles.opcion}>
@@ -96,6 +90,11 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
             </Pressable>
           ))}
         </View>
+
+        <Pressable style={styles.opcion} onPress={cerrarSesion}>
+          <Feather name="log-out" size={18} color={colors.primary} />
+          <Text style={[styles.opcionTexto, styles.opcionSalir]}>Cerrar sesión</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -221,5 +220,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: colors.text,
+  },
+  opcionSalir: {
+    color: colors.primary,
+    fontWeight: "600",
   },
 });
