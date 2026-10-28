@@ -4,6 +4,7 @@ import type { AppScreenProps } from "../types/navigation";
 import {
   BackButton,
   BrandIcon,
+  Chip,
   Field,
   OrDivider,
   PrimaryButton,
@@ -18,6 +19,7 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [clave, setClave] = useState("");
+  const [rol, setRol] = useState<"conductor" | "propietario" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const registrar = () => {
@@ -39,6 +41,10 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
     }
     if (clave.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (!rol) {
+      setError("Elige si quieres ser conductor o propietario.");
       return;
     }
     setError(null);
@@ -71,7 +77,7 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
         <Field
           value={nombre}
           onChangeText={setNombre}
-          placeholder="Nombre Completo"
+          placeholder="Nombre"
           autoCapitalize="words"
         />
         <Field
@@ -86,6 +92,19 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
           placeholder="Contraseña"
           secureTextEntry
         />
+        <Text style={styles.etiquetaRol}>¿Cómo quieres usar Kike Parking?</Text>
+        <View style={styles.filaRol}>
+          <Chip
+            label="Conductor"
+            selected={rol === "conductor"}
+            onPress={() => setRol("conductor")}
+          />
+          <Chip
+            label="Propietario"
+            selected={rol === "propietario"}
+            onPress={() => setRol("propietario")}
+          />
+        </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
 
@@ -121,6 +140,18 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     color: colors.primary,
     fontSize: 12,
+    marginBottom: spacing.sm,
+  },
+  etiquetaRol: {
+    alignSelf: "flex-start",
+    fontSize: 12,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  filaRol: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    alignSelf: "flex-start",
     marginBottom: spacing.sm,
   },
 });
