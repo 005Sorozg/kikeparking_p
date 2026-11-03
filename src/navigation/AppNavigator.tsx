@@ -14,6 +14,7 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { ParkingDetailScreen } from "../screens/ParkingDetailScreen";
 import { BookingScreen } from "../screens/BookingScreen";
 import { MyBookingsScreen } from "../screens/MyBookingsScreen";
+import { AddParkingScreen } from "../screens/AddParkingScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { tituloDe } from "../services/chat";
 import { colors } from "../styles/theme";
@@ -116,6 +117,11 @@ export function AppNavigator() {
         <Stack.Screen
           name="MyBookings"
           component={MyBookingsScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+         <Stack.Screen
+          name="AddParking"
+          component={AddParkingScreen}
           options={{ ...encabezado, title: "" }}
         />
         <Stack.Screen
