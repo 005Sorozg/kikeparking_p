@@ -22,6 +22,7 @@ export type AppStackParamList = {
   ParkingDetail: { parkingSpotId: string };
   Booking: { parkingSpotId: string };
   MyBookings: undefined;
+  AddParking: undefined;
   Chat: { conversationId: string };
 };
 
