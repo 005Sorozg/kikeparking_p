@@ -90,4 +90,36 @@ export const parkingSpots: ParkingSpot[] = [
     calificacion: 4.8,
     favorito: false,
   },
+  
 ];
+// Datos del formulario "Agregar parqueadero".
+export interface NuevoParqueadero {
+  titulo: string;
+  barrio: string;
+  ciudad: string;
+  direccion: string;
+  precioHora: number;
+  vehiculos: number;
+  etiquetas: string[];
+}
+
+// Por ahora solo lo agrega a la lista local; luego se reemplaza por la llamada a la API.
+export function crearParqueadero(datos: NuevoParqueadero): ParkingSpot {
+  const nuevo: ParkingSpot = {
+    id: String(parkingSpots.length + 1),
+    titulo: datos.titulo,
+    barrio: datos.barrio,
+    ciudad: datos.ciudad,
+    direccion: datos.direccion,
+    distanciaKm: 0,
+    vehiculos: datos.vehiculos,
+    etiquetas: datos.etiquetas,
+    
+    precioDia: datos.precioHora * 24,
+    disponible: true,
+    calificacion: 0,
+    favorito: false,
+  };
+  parkingSpots.push(nuevo);
+  return nuevo;
+}
