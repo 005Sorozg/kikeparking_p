@@ -81,6 +81,20 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
           </View>
         </View>
 
+         <Pressable
+          style={[styles.tarjeta, styles.host]}
+          onPress={() => navigation.navigate("AddParking")}
+        >
+          <Feather name="plus-circle" size={26} color={colors.primary} />
+          <View style={styles.hostTextos}>
+            <Text style={styles.hostTitulo}>Publica tu parqueadero</Text>
+            <Text style={styles.hostDescripcion}>
+              Renta tu espacio y genera ingresos.
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={16} color={colors.textLight} />
+        </Pressable>
+        
         <View style={styles.opciones}>
           {OPCIONES.map((o) => (
             <Pressable key={o.texto} style={styles.opcion}>
