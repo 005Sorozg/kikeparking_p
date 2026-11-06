@@ -1,22 +1,61 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { AppScreenProps } from "../types/navigation";
-import { formatearPrecio, parkingSpots } from "../services/parking";
+import {
+  Parqueadero,
+  formatearPrecio,
+  obtenerParqueadero,
+} from "../services/parking";
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
-// Detalle de un parqueadero (el Figma aún no tiene esta pantalla: usa el mismo estilo del resto).
+// Detalle de un parqueadero: se pide al backend por su id.
 export function ParkingDetailScreen({
   route,
   navigation,
 }: AppScreenProps<"ParkingDetail">) {
-  const spot = parkingSpots.find((p) => p.id === route.params.parkingSpotId);
+  const [spot, setSpot] = useState<Parqueadero | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let activo = true;
+
+    obtenerParqueadero(route.params.parkingSpotId)
+      .then((dato) => {
+        if (activo) setSpot(dato);
+      })
+      .catch((e) => {
+        if (activo) {
+          setError(
+            e instanceof Error ? e.message : "No se pudo cargar el parqueadero.",
+          );
+        }
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, [route.params.parkingSpotId]);
+
+  if (error) {
+    return (
+      <View style={styles.centro}>
+        <Text style={styles.vacio}>{error}</Text>
+      </View>
+    );
+  }
 
   if (!spot) {
     return (
       <View style={styles.centro}>
-        <Text style={styles.vacio}>No encontramos este parqueadero.</Text>
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
@@ -36,21 +75,19 @@ export function ParkingDetailScreen({
         <Text style={styles.titulo}>{spot.titulo}</Text>
         <View style={styles.calificacion}>
           <Ionicons name="star" size={14} color={colors.black} />
-          <Text style={styles.calificacionTexto}>{spot.calificacion}</Text>
+          <Text style={styles.calificacionTexto}>
+            {spot.calificacion > 0 ? spot.calificacion.toFixed(1) : "Nuevo"}
+          </Text>
         </View>
       </View>
 
       <Text style={styles.detalle}>
-        {spot.barrio}, {spot.ciudad} · {spot.direccion}
+        {spot.barrio} · {spot.direccion}
       </Text>
-      <Text style={styles.detalle}>
-        {spot.distanciaKm.toFixed(1)} km de distancia
-      </Text>
-      <Text style={styles.detalle}>{spot.etiquetas.join(" • ")}</Text>
 
       <Text style={styles.precio}>
-        {formatearPrecio(spot.precioDia)}
-        <Text style={styles.precioUnidad}> / día</Text>
+        {formatearPrecio(spot.precioHora)}
+        <Text style={styles.precioUnidad}> / hora</Text>
       </Text>
       <Text style={[styles.estado, !spot.disponible && styles.estadoOcupado]}>
         {spot.disponible ? "Disponible" : "Ocupado"}

@@ -10,6 +10,7 @@ import {
   ImagePlaceholder,
 } from "../components/ui";
 import { colors, radius, shadow, spacing } from "../styles/theme";
+import { useAuth } from "../context/AuthContext";
 
 // Datos ficticios: más adelante vendrán del usuario que inició sesión.
 const ESTADISTICAS = [
@@ -25,9 +26,13 @@ const OPCIONES: { icono: "settings" | "help-circle"; texto: string }[] = [
 
 export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
   const insets = useSafeAreaInsets();
-    const cerrarSesion = () => {
+  const { usuario, cerrarSesion: borrarSesion } = useAuth();
+
+  const cerrarSesion = () => {
+    // Primero se borra la sesión (usuario y token) y luego se vuelve al login.
+    borrarSesion();
     navigation.dispatch(
-      CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
+      CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }),
     );
   };
   return (
@@ -41,8 +46,10 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
         <View style={[styles.tarjeta, styles.tarjetaPerfil]}>
           <View style={styles.perfil}>
             <AvatarPlaceholder size={84} source={require("../../assets/images/imagen-fernando.jpeg")} />
-            <Text style={styles.nombre}>Daniel</Text>
-            <Text style={styles.ubicacion}>Medellín, Colombia</Text>
+            <Text style={styles.nombre}>{usuario?.name ?? "Invitado"}</Text>
+            <Text style={styles.ubicacion}>
+              {usuario?.role === "propietario" ? "Propietario" : "Conductor"}
+            </Text>
           </View>
 
           <View style={styles.estadisticas}>
@@ -81,19 +88,21 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
           </View>
         </View>
 
-         <Pressable
-          style={[styles.tarjeta, styles.host]}
-          onPress={() => navigation.navigate("AddParking")}
-        >
-          <Feather name="plus-circle" size={26} color={colors.primary} />
-          <View style={styles.hostTextos}>
-            <Text style={styles.hostTitulo}>Publica tu parqueadero</Text>
-            <Text style={styles.hostDescripcion}>
-              Renta tu espacio y genera ingresos.
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={16} color={colors.textLight} />
-        </Pressable>
+        {usuario?.role === "propietario" && (
+          <Pressable
+            style={[styles.tarjeta, styles.host]}
+            onPress={() => navigation.navigate("AddParking")}
+          >
+            <Feather name="plus-circle" size={26} color={colors.primary} />
+            <View style={styles.hostTextos}>
+              <Text style={styles.hostTitulo}>Publica tu parqueadero</Text>
+              <Text style={styles.hostDescripcion}>
+                Renta tu espacio y genera ingresos.
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.textLight} />
+          </Pressable>
+        )}
         
         <View style={styles.opciones}>
           {OPCIONES.map((o) => (

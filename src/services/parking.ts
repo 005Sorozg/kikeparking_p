@@ -1,4 +1,5 @@
 import type { ImageSourcePropType } from "react-native";
+import { apiRequest } from "./api";
 
 // Datos ficticios: más adelante se reemplazan por llamadas reales a la API.
 
@@ -92,34 +93,108 @@ export const parkingSpots: ParkingSpot[] = [
   },
   
 ];
-// Datos del formulario "Agregar parqueadero".
-export interface NuevoParqueadero {
-  titulo: string;
-  barrio: string;
-  ciudad: string;
-  direccion: string;
-  precioHora: number;
-  vehiculos: number;
-  etiquetas: string[];
+
+
+// ---------- Datos reales (API) ----------
+
+// Así responde el backend (GET /parking-spots).
+interface ParqueaderoApi {
+  id: number;
+  title: string;
+  neighborhood: string;
+  address: string;
+  pricePerHour: number;
+  available: boolean;
+  rating: number;
+  ownerId: number;
 }
 
-// Por ahora solo lo agrega a la lista local; luego se reemplaza por la llamada a la API.
-export function crearParqueadero(datos: NuevoParqueadero): ParkingSpot {
-  const nuevo: ParkingSpot = {
-    id: String(parkingSpots.length + 1),
-    titulo: datos.titulo,
-    barrio: datos.barrio,
-    ciudad: datos.ciudad,
-    direccion: datos.direccion,
-    distanciaKm: 0,
-    vehiculos: datos.vehiculos,
-    etiquetas: datos.etiquetas,
-    
-    precioDia: datos.precioHora * 24,
-    disponible: true,
-    calificacion: 0,
-    favorito: false,
-  };
-  parkingSpots.push(nuevo);
-  return nuevo;
+// Así los usan las pantallas.
+export interface Parqueadero {
+  id: string;
+  titulo: string;
+  barrio: string;
+  direccion: string;
+  precioHora: number;
+  disponible: boolean;
+  calificacion: number;
+  propietarioId: number;
+  imagen: ImageSourcePropType;
+}
+
+// El backend todavía no guarda fotos: se reparten las 4 de ejemplo según el id.
+const IMAGENES_EJEMPLO: ImageSourcePropType[] = [
+  require("../../assets/images/garaje-techado.jpeg"),
+  require("../../assets/images/celda-unidad.jpg"),
+  require("../../assets/images/parqueadero-descubierto.jpg"),
+  require("../../assets/images/garaje-familiar.jpeg"),
+];
+
+const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
+  id: String(p.id),
+  titulo: p.title,
+  barrio: p.neighborhood,
+  direccion: p.address,
+  precioHora: p.pricePerHour,
+  disponible: p.available,
+  calificacion: p.rating,
+  propietarioId: p.ownerId,
+  imagen: IMAGENES_EJEMPLO[p.id % IMAGENES_EJEMPLO.length],
+});
+
+export interface FiltrosParqueaderos {
+  busqueda?: string;
+  soloDisponibles?: boolean;
+  orden?: "rating" | "price";
+}
+
+// GET /parking-spots, con los filtros que el backend ya soporta.
+export async function obtenerParqueaderos(
+  filtros: FiltrosParqueaderos = {},
+): Promise<Parqueadero[]> {
+  const params = new URLSearchParams();
+
+  if (filtros.busqueda?.trim()) params.set("search", filtros.busqueda.trim());
+  if (filtros.soloDisponibles) params.set("onlyAvailable", "true");
+  if (filtros.orden) params.set("sort", filtros.orden);
+
+  const consulta = params.toString();
+  const datos = await apiRequest<ParqueaderoApi[]>(
+    `/parking-spots${consulta ? `?${consulta}` : ""}`,
+  );
+
+  return datos.map(aParqueadero);
+}
+
+// GET /parking-spots/:id
+export async function obtenerParqueadero(id: string): Promise<Parqueadero> {
+  const dato = await apiRequest<ParqueaderoApi>(`/parking-spots/${id}`);
+
+  return aParqueadero(dato);
+}
+
+export interface DatosParqueadero {
+  titulo: string;
+  barrio: string;
+  direccion: string;
+  precioHora: number;
+}
+
+// POST /parking-spots (requiere sesión iniciada: el dueño sale del token).
+export async function publicarParqueadero(
+  datos: DatosParqueadero,
+  token: string,
+): Promise<Parqueadero> {
+  const dato = await apiRequest<ParqueaderoApi>("/parking-spots", {
+    method: "POST",
+    token,
+    body: {
+      title: datos.titulo,
+      neighborhood: datos.barrio,
+      address: datos.direccion,
+      pricePerHour: datos.precioHora,
+    },
+  });
+
+  return aParqueadero(dato);
 }
