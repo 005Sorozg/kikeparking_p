@@ -11,9 +11,12 @@ import {
   SocialButtons,
 } from "../components/ui";
 import { colors, spacing } from "../styles/theme";
+import { useAuth } from "../context/AuthContext";
 
 // Registro: correo, teléfono, nombre, apellido y contraseña.
 export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
+  const { registrar: crearCuenta } = useAuth();
+  const [cargando, setCargando] = useState(false);
   const [correo, setCorreo] = useState("");
   const [telefono, setTelefono] = useState("");
   const [nombre, setNombre] = useState("");
@@ -22,7 +25,7 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
   const [rol, setRol] = useState<"conductor" | "propietario" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const registrar = () => {
+    const registrar = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())) {
       setError("Escribe un correo válido.");
       return;
@@ -47,8 +50,25 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
       setError("Elige si quieres ser conductor o propietario.");
       return;
     }
+
     setError(null);
-    navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+    setCargando(true);
+
+    try {
+      // El backend guarda un solo campo "name", así que juntamos nombre y apellido.
+      // El teléfono no se envía porque el backend todavía no lo guarda.
+      await crearCuenta({
+        name: `${nombre.trim()} ${apellido.trim()}`,
+        email: correo.trim(),
+        password: clave,
+        role: rol,
+      });
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo crear la cuenta.");
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -108,7 +128,11 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <PrimaryButton label="Registrarse" onPress={registrar} />
+        <PrimaryButton
+          label={cargando ? "Registrando..." : "Registrarse"}
+          onPress={registrar}
+          disabled={cargando}
+        />
 
         <OrDivider />
         <SocialButtons />

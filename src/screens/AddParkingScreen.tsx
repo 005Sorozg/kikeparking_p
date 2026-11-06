@@ -1,41 +1,30 @@
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
 import type { AppScreenProps } from "../types/navigation";
-import { FILTROS_RAPIDOS, crearParqueadero } from "../services/parking";
-import { Chip, Field, ImagePlaceholder, PrimaryButton } from "../components/ui";
+import { publicarParqueadero } from "../services/parking";
+import { useAuth } from "../context/AuthContext";
+import { Field, ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Agregar parqueadero: formulario del propietario para publicar su espacio.
-// Los campos título, barrio, dirección y precio por hora coinciden con lo que
-// pide POST /kikeparking-api/v1/parking-spots, para conectarlo luego sin cambios.
+// Envía título, barrio, dirección y precio por hora a POST /parking-spots.
 export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
+  const { token } = useAuth();
   const [titulo, setTitulo] = useState("");
   const [barrio, setBarrio] = useState("");
-  const [ciudad, setCiudad] = useState("Medellín");
   const [direccion, setDireccion] = useState("");
   const [precioHora, setPrecioHora] = useState("");
-  const [vehiculos, setVehiculos] = useState(1);
-  const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
 
-  const alternarEtiqueta = (etiqueta: string) =>
-    setEtiquetas((actuales) =>
-      actuales.includes(etiqueta)
-        ? actuales.filter((e) => e !== etiqueta)
-        : [...actuales, etiqueta],
-    );
-
-  const publicar = () => {
+  const publicar = async () => {
     // Mismas reglas que valida el backend, para avisar antes de enviar.
     const precio = Number(precioHora.replace(/\D/g, ""));
     if (titulo.trim().length < 3) {
@@ -46,10 +35,6 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
       setError("Escribe el barrio.");
       return;
     }
-    if (ciudad.trim().length < 2) {
-      setError("Escribe la ciudad.");
-      return;
-    }
     if (direccion.trim().length < 3) {
       setError("Escribe la dirección.");
       return;
@@ -58,19 +43,33 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
       setError("El precio por hora debe ser un número mayor que 0.");
       return;
     }
+    if (!token) {
+      setError("Debes iniciar sesión para publicar un parqueadero.");
+      return;
+    }
 
     setError(null);
-    crearParqueadero({
-      titulo: titulo.trim(),
-      barrio: barrio.trim(),
-      ciudad: ciudad.trim(),
-      direccion: direccion.trim(),
-      precioHora: precio,
-      vehiculos,
-      etiquetas,
-    });
-    Alert.alert("¡Listo!", "Tu parqueadero ya está publicado.");
-    navigation.goBack();
+    setCargando(true);
+
+    try {
+      await publicarParqueadero(
+        {
+          titulo: titulo.trim(),
+          barrio: barrio.trim(),
+          direccion: direccion.trim(),
+          precioHora: precio,
+        },
+        token,
+      );
+      // Al volver a Explorar, la lista se recarga y aparece el nuevo parqueadero.
+      navigation.goBack();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo publicar el parqueadero.",
+      );
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -109,12 +108,6 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
           autoCapitalize="words"
         />
         <Field
-          value={ciudad}
-          onChangeText={setCiudad}
-          placeholder="Ciudad"
-          autoCapitalize="words"
-        />
-        <Field
           value={direccion}
           onChangeText={setDireccion}
           placeholder="Dirección (Ej: Cra. 76 #44-20)"
@@ -129,43 +122,14 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
           keyboardType="number-pad"
         />
 
-        <Text style={styles.etiquetaCampo}>Capacidad</Text>
-        <View style={styles.contador}>
-          <Pressable
-            style={styles.contadorBoton}
-            onPress={() => setVehiculos((v) => Math.max(1, v - 1))}
-            hitSlop={8}
-          >
-            <Feather name="minus" size={16} color={colors.text} />
-          </Pressable>
-          <Text style={styles.contadorValor}>
-            {vehiculos} {vehiculos === 1 ? "vehículo" : "vehículos"}
-          </Text>
-          <Pressable
-            style={styles.contadorBoton}
-            onPress={() => setVehiculos((v) => Math.min(10, v + 1))}
-            hitSlop={8}
-          >
-            <Feather name="plus" size={16} color={colors.text} />
-          </Pressable>
-        </View>
-
-        <Text style={styles.etiquetaCampo}>Características</Text>
-        <View style={styles.etiquetas}>
-          {FILTROS_RAPIDOS.map((etiqueta) => (
-            <Chip
-              key={etiqueta}
-              label={etiqueta}
-              selected={etiquetas.includes(etiqueta)}
-              onPress={() => alternarEtiqueta(etiqueta)}
-            />
-          ))}
-        </View>
-
         {error && <Text style={styles.error}>{error}</Text>}
 
         <View style={styles.boton}>
-          <PrimaryButton label="Publicar parqueadero" onPress={publicar} />
+          <PrimaryButton
+            label={cargando ? "Publicando..." : "Publicar parqueadero"}
+            onPress={publicar}
+            disabled={cargando}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -211,30 +175,6 @@ const styles = StyleSheet.create({
   fotoTexto: {
     fontSize: 11,
     color: colors.textLight,
-  },
-  contador: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  contadorBoton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.chip,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  contadorValor: {
-    fontSize: 13,
-    color: colors.text,
-    minWidth: 90,
-    textAlign: "center",
-  },
-  etiquetas: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
   },
   error: {
     color: colors.primary,

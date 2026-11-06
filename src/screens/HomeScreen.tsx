@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
@@ -9,48 +10,72 @@ import {
   View,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MainTabScreenProps } from "../types/navigation";
 import {
-  FILTROS_RAPIDOS,
+  Parqueadero,
   formatearPrecio,
-  parkingSpots,
+  obtenerParqueaderos,
 } from "../services/parking";
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, shadow, spacing } from "../styles/theme";
 
-// Inicio - Explorar: buscador, chips de filtros y tarjetas grandes de parqueaderos.
+type Orden = "rating" | "price" | null;
+
+// Inicio - Explorar: buscador, filtros y tarjetas de parqueaderos que vienen del backend.
 export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const insets = useSafeAreaInsets();
   const [busqueda, setBusqueda] = useState("");
-  const [filtros, setFiltros] = useState<string[]>([]);
-  // Favoritos locales: arrancan con lo que trae cada parqueadero.
-  const [favoritos, setFavoritos] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(parkingSpots.map((p) => [p.id, p.favorito])),
+  const [soloDisponibles, setSoloDisponibles] = useState(false);
+  const [orden, setOrden] = useState<Orden>(null);
+  const [parqueaderos, setParqueaderos] = useState<Parqueadero[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // Favoritos locales: todavía no hay endpoint, así que solo viven en la pantalla.
+  const [favoritos, setFavoritos] = useState<Record<string, boolean>>({});
+
+  // Se ejecuta al abrir la pantalla, al volver a ella (ej: después de publicar un
+  // parqueadero) y cada vez que cambia un filtro. El retraso de 300 ms evita
+  // llamar al backend con cada letra que se escribe.
+  useFocusEffect(
+    useCallback(() => {
+      let activo = true;
+
+      const temporizador = setTimeout(async () => {
+        try {
+          setError(null);
+          const datos = await obtenerParqueaderos({
+            busqueda,
+            soloDisponibles,
+            orden: orden ?? undefined,
+          });
+          if (activo) setParqueaderos(datos);
+        } catch (e) {
+          if (activo) {
+            setError(
+              e instanceof Error
+                ? e.message
+                : "No se pudieron cargar los parqueaderos.",
+            );
+          }
+        } finally {
+          if (activo) setCargando(false);
+        }
+      }, 300);
+
+      return () => {
+        activo = false;
+        clearTimeout(temporizador);
+      };
+    }, [busqueda, soloDisponibles, orden]),
   );
 
-  const alternarFiltro = (filtro: string) =>
-    setFiltros((actuales) =>
-      actuales.includes(filtro)
-        ? actuales.filter((f) => f !== filtro)
-        : [...actuales, filtro],
-    );
+  const alternarOrden = (valor: "rating" | "price") =>
+    setOrden((actual) => (actual === valor ? null : valor));
 
   const alternarFavorito = (id: string) =>
     setFavoritos((actuales) => ({ ...actuales, [id]: !actuales[id] }));
-
-  const resultados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
-    return parkingSpots.filter((p) => {
-      const coincide =
-        texto.length === 0 ||
-        p.barrio.toLowerCase().includes(texto) ||
-        p.ciudad.toLowerCase().includes(texto) ||
-        p.titulo.toLowerCase().includes(texto);
-      const cumpleFiltros = filtros.every((f) => p.etiquetas.includes(f));
-      return coincide && cumpleFiltros;
-    });
-  }, [busqueda, filtros]);
 
   return (
     <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
@@ -62,7 +87,7 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
             style={styles.buscadorInput}
             value={busqueda}
             onChangeText={setBusqueda}
-            placeholder="Buscar parqueaderos cercanos"
+            placeholder="Buscar por barrio o nombre"
             placeholderTextColor={colors.textLight}
           />
         </View>
@@ -75,19 +100,26 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
           contentContainerStyle={styles.filtros}
         >
           <Chip label="Filtrar" icon="filter" />
-          {FILTROS_RAPIDOS.map((filtro) => (
-            <Chip
-              key={filtro}
-              label={filtro}
-              selected={filtros.includes(filtro)}
-              onPress={() => alternarFiltro(filtro)}
-            />
-          ))}
+          <Chip
+            label="Solo disponibles"
+            selected={soloDisponibles}
+            onPress={() => setSoloDisponibles((v) => !v)}
+          />
+          <Chip
+            label="Mejor calificados"
+            selected={orden === "rating"}
+            onPress={() => alternarOrden("rating")}
+          />
+          <Chip
+            label="Menor precio"
+            selected={orden === "price"}
+            onPress={() => alternarOrden("price")}
+          />
         </ScrollView>
       </View>
 
       <FlatList
-        data={resultados}
+        data={parqueaderos}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.lista}
         ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
@@ -127,32 +159,33 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
                   <View style={styles.calificacion}>
                     <Ionicons name="star" size={14} color={colors.black} />
                     <Text style={styles.calificacionTexto}>
-                      {item.calificacion}
+                      {item.calificacion > 0
+                        ? item.calificacion.toFixed(1)
+                        : "Nuevo"}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.detalle}>
-                  {item.barrio}, {item.ciudad}
-                </Text>
-                <Text style={styles.detalle}>
-                  {item.distanciaKm.toFixed(1)} km de distancia
-                </Text>
-                <Text style={styles.detalle}>
-                  {item.vehiculos} {item.vehiculos === 1 ? "vehículo" : "vehículos"}
-                </Text>
-                <Text style={styles.detalle}>{item.etiquetas.join(" • ")}</Text>
+                <Text style={styles.detalle}>{item.barrio}</Text>
+                <Text style={styles.detalle}>{item.direccion}</Text>
                 <Text style={styles.precio}>
-                  {formatearPrecio(item.precioDia)}
-                  <Text style={styles.precioUnidad}> / día</Text>
+                  {formatearPrecio(item.precioHora)}
+                  <Text style={styles.precioUnidad}> / hora</Text>
                 </Text>
               </View>
             </Pressable>
           );
         }}
         ListEmptyComponent={
-          <Text style={styles.vacio}>
-            No encontramos parqueaderos con esa búsqueda.
-          </Text>
+          cargando ? (
+            <ActivityIndicator
+              style={{ marginTop: spacing.xl }}
+              color={colors.primary}
+            />
+          ) : (
+            <Text style={styles.vacio}>
+              {error ?? "No encontramos parqueaderos con esa búsqueda."}
+            </Text>
+          )
         }
       />
     </View>

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import type { AppScreenProps } from "../types/navigation";
 import { BackButton, BrandIcon, Field, PrimaryButton } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
 import { colors, spacing } from "../styles/theme";
 
 // Segundo paso del acceso: correo ya escrito + contraseña.
@@ -16,22 +17,37 @@ export function LoginPasswordScreen({
   navigation,
   route,
 }: AppScreenProps<"LoginPassword">) {
+  const { iniciarSesion } = useAuth();
   const [identificador, setIdentificador] = useState(route.params.identifier);
   const [clave, setClave] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
 
-  const continuar = () => {
-    if (identificador.trim().length === 0) {
-      setError("Escribe tu correo o número de teléfono.");
+  const continuar = async () => {
+    const correo = identificador.trim();
+
+    // El backend solo identifica usuarios por correo.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+      setError("Por ahora solo puedes iniciar sesión con tu correo electrónico.");
       return;
     }
     if (clave.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
+
     setError(null);
-    // reset: así el botón "atrás" no vuelve al login.
-    navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+    setCargando(true);
+
+    try {
+      await iniciarSesion(correo, clave);
+      // reset: así el botón "atrás" no vuelve al login.
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo iniciar sesión.");
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -60,7 +76,11 @@ export function LoginPasswordScreen({
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <PrimaryButton label="Continuar" onPress={continuar} />
+        <PrimaryButton
+          label={cargando ? "Entrando..." : "Continuar"}
+          onPress={continuar}
+          disabled={cargando}
+        />
 
         <Pressable style={styles.enlaceWrap}>
           <Text style={styles.enlace}>Olvidé la contraseña</Text>
