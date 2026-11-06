@@ -130,6 +130,10 @@ const IMAGENES_EJEMPLO: ImageSourcePropType[] = [
   require("../../assets/images/garaje-familiar.jpeg"),
 ];
 
+// Foto de ejemplo que le toca a un parqueadero según su id.
+export const imagenDeParqueadero = (id: number): ImageSourcePropType =>
+  IMAGENES_EJEMPLO[id % IMAGENES_EJEMPLO.length];
+
 const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
   id: String(p.id),
   titulo: p.title,
@@ -139,7 +143,7 @@ const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
   disponible: p.available,
   calificacion: p.rating,
   propietarioId: p.ownerId,
-  imagen: IMAGENES_EJEMPLO[p.id % IMAGENES_EJEMPLO.length],
+  imagen: imagenDeParqueadero(p.id),
 });
 
 export interface FiltrosParqueaderos {
@@ -173,6 +177,17 @@ export async function obtenerParqueadero(id: string): Promise<Parqueadero> {
   return aParqueadero(dato);
 }
 
+// GET /parking-spots/mine (propietario): sus parqueaderos publicados.
+export async function obtenerMisParqueaderos(
+  token: string,
+): Promise<Parqueadero[]> {
+  const datos = await apiRequest<ParqueaderoApi[]>("/parking-spots/mine", {
+    token,
+  });
+
+  return datos.map(aParqueadero);
+}
+
 export interface DatosParqueadero {
   titulo: string;
   barrio: string;
@@ -195,6 +210,21 @@ export async function publicarParqueadero(
       pricePerHour: datos.precioHora,
     },
   });
+
+  return aParqueadero(dato);
+}
+
+// PATCH /parking-spots/:id/availability (solo el dueño).
+// disponible = false lo pausa: no recibe reservas nuevas, las que tenía se mantienen.
+export async function cambiarDisponibilidad(
+  id: string,
+  disponible: boolean,
+  token: string,
+): Promise<Parqueadero> {
+  const dato = await apiRequest<ParqueaderoApi>(
+    `/parking-spots/${id}/availability`,
+    { method: "PATCH", token, body: { available: disponible } },
+  );
 
   return aParqueadero(dato);
 }

@@ -1,9 +1,25 @@
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import type { AppScreenProps } from "../types/navigation";
-import { formatearPrecio, parkingSpots } from "../services/parking";
-import { bookings, esProxima, formatearRango } from "../services/bookings";
+import { formatearPrecio } from "../services/parking";
+import {
+  Reserva,
+  cancelarReserva,
+  esProxima,
+  formatearRango,
+  obtenerMisReservas,
+  obtenerReservasRecibidas,
+} from "../services/bookings";
+import { useAuth } from "../context/AuthContext";
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
@@ -14,17 +30,82 @@ const FILTROS: { id: Filtro; etiqueta: string }[] = [
   { id: "anteriores", etiqueta: "Anteriores" },
 ];
 
-// Reservas: chips para alternar entre las próximas y las anteriores.
+// Reservas: el conductor ve las que hizo y el propietario las que recibió.
 export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
-  const [filtro, setFiltro] = useState<Filtro>("proximas");
+  const { usuario, token } = useAuth();
+  const esPropietario = usuario?.role === "propietario";
 
-  const visibles = bookings.filter((b) =>
-    filtro === "proximas" ? esProxima(b) : !esProxima(b),
+  const [filtro, setFiltro] = useState<Filtro>("proximas");
+  const [reservas, setReservas] = useState<Reserva[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Reserva que está pidiendo confirmación para cancelarse.
+  const [confirmando, setConfirmando] = useState<number | null>(null);
+  const [cancelando, setCancelando] = useState<number | null>(null);
+
+  // Se recarga cada vez que la pantalla se vuelve a mostrar.
+  useFocusEffect(
+    useCallback(() => {
+      if (!token) {
+        setError("Debes iniciar sesión para ver tus reservas.");
+        return;
+      }
+
+      let activo = true;
+      const pedir = esPropietario ? obtenerReservasRecibidas : obtenerMisReservas;
+
+      pedir(token)
+        .then((datos) => {
+          if (activo) {
+            setReservas(datos);
+            setError(null);
+          }
+        })
+        .catch((e) => {
+          if (activo) {
+            setError(
+              e instanceof Error ? e.message : "No se pudieron cargar las reservas.",
+            );
+          }
+        });
+
+      return () => {
+        activo = false;
+      };
+    }, [token, esPropietario]),
   );
+
+  const cancelar = async (id: number) => {
+    if (!token) return;
+
+    setCancelando(id);
+    try {
+      const actualizada = await cancelarReserva(id, token);
+      setReservas((actuales) =>
+        (actuales ?? []).map((r) => (r.id === id ? actualizada : r)),
+      );
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cancelar la reserva.");
+    } finally {
+      setCancelando(null);
+      setConfirmando(null);
+    }
+  };
+
+  const visibles = (reservas ?? [])
+    .filter((r) => (filtro === "proximas" ? esProxima(r) : !esProxima(r)))
+    // Próximas: la más cercana primero. Anteriores: la más reciente primero.
+    .sort((a, b) =>
+      filtro === "proximas"
+        ? a.entrada.getTime() - b.entrada.getTime()
+        : b.entrada.getTime() - a.entrada.getTime(),
+    );
 
   return (
     <View style={styles.contenedor}>
-      <Text style={styles.titulo}>Reservas</Text>
+      <Text style={styles.titulo}>
+        {esPropietario ? "Reservas recibidas" : "Reservas"}
+      </Text>
 
       <View style={styles.chips}>
         {FILTROS.map((f) => (
@@ -39,43 +120,77 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
       </View>
 
       <ScrollView contentContainerStyle={styles.lista}>
-        {visibles.length === 0 && (
+        {error && <Text style={styles.error}>{error}</Text>}
+
+        {!reservas && !error && <ActivityIndicator color={colors.primary} />}
+
+        {reservas && visibles.length === 0 && (
           <Text style={styles.vacio}>
             No tienes reservas {filtro === "proximas" ? "próximas" : "anteriores"}.
           </Text>
         )}
-        {visibles.map((b) => {
-          const spot = parkingSpots.find((p) => p.id === b.parkingSpotId);
-          if (!spot) return null;
+
+        {visibles.map((r) => {
+          const cancelada = r.estado === "cancelled";
           return (
-            <View key={b.id} style={styles.fila}>
+            <View key={r.id} style={styles.fila}>
               <ImagePlaceholder
                 style={styles.foto}
                 iconSize={26}
-                source={spot.imagen}
+                source={r.parqueadero.imagen}
               />
               <View style={styles.textos}>
                 <Text style={styles.nombre} numberOfLines={1}>
-                  {spot.titulo}
+                  {r.parqueadero.titulo}
                 </Text>
                 <Text style={styles.detalle}>
-                  {spot.barrio}, {spot.ciudad}
+                  {esPropietario
+                    ? `Reservó ${r.conductor.nombre}`
+                    : `${r.parqueadero.barrio} · ${r.parqueadero.direccion}`}
                 </Text>
                 <Text style={styles.detalle}>
-                  {formatearRango(b.entrada, b.dias)}
+                  {formatearRango(r.entrada, r.salida)}
                 </Text>
                 <View style={styles.vehiculo}>
                   <Feather
-                    name={b.vehiculo === "carro" ? "truck" : "navigation"}
+                    name={r.vehiculo === "carro" ? "truck" : "navigation"}
                     size={11}
                     color={colors.textLight}
                   />
                   <Text style={styles.detalle}>
-                    {b.vehiculo === "carro" ? "Carro" : "Moto"}
+                    {r.vehiculo === "carro" ? "Carro" : "Moto"} · {r.horas}{" "}
+                    {r.horas === 1 ? "hora" : "horas"}
                   </Text>
                 </View>
+
+                {cancelada && <Text style={styles.cancelada}>Cancelada</Text>}
+
+                {esProxima(r) && confirmando !== r.id && (
+                  <Pressable onPress={() => setConfirmando(r.id)}>
+                    <Text style={styles.accion}>Cancelar reserva</Text>
+                  </Pressable>
+                )}
+
+                {esProxima(r) && confirmando === r.id && (
+                  <View style={styles.confirmar}>
+                    <Text style={styles.detalle}>¿Seguro?</Text>
+                    <Pressable
+                      onPress={() => cancelar(r.id)}
+                      disabled={cancelando === r.id}
+                    >
+                      <Text style={styles.accion}>
+                        {cancelando === r.id ? "Cancelando..." : "Sí, cancelar"}
+                      </Text>
+                    </Pressable>
+                    <Pressable onPress={() => setConfirmando(null)}>
+                      <Text style={styles.accionSecundaria}>No</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
-              <Text style={styles.precio}>{formatearPrecio(b.total)}</Text>
+              <Text style={[styles.precio, cancelada && styles.precioTachado]}>
+                {formatearPrecio(r.total)}
+              </Text>
             </View>
           );
         })}
@@ -145,5 +260,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: colors.text,
+  },
+  precioTachado: {
+    color: colors.textLight,
+    textDecorationLine: "line-through",
+  },
+  error: {
+    color: colors.primary,
+    fontSize: 12,
+    marginBottom: spacing.md,
+  },
+  cancelada: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primary,
+    marginTop: 4,
+  },
+  accion: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.primary,
+    marginTop: spacing.sm,
+  },
+  accionSecundaria: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.text,
+    marginTop: spacing.sm,
+  },
+  confirmar: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: spacing.md,
   },
 });

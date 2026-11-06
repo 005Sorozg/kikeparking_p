@@ -8,6 +8,9 @@ import { LoginScreen } from "../screens/LoginScreen";
 import { LoginPasswordScreen } from "../screens/LoginPasswordScreen";
 import { RegisterScreen } from "../screens/RegisterScreen";
 import { HomeScreen } from "../screens/HomeScreen";
+import { MyParkingsScreen } from "../screens/MyParkingsScreen";
+import { MyParkingDetailScreen } from "../screens/MyParkingDetailScreen";
+import { useAuth } from "../context/AuthContext";
 import { FavoritesScreen } from "../screens/FavoritesScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
@@ -31,6 +34,8 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 // La barra de abajo con las 4 pestañas principales.
 function MainTabs() {
+  const { usuario } = useAuth();
+  const esPropietario = usuario?.role === "propietario";
   return (
     <Tab.Navigator
       screenOptions={{
@@ -46,11 +51,16 @@ function MainTabs() {
     >
       <Tab.Screen
         name="Explore"
-        component={HomeScreen}
+        component={esPropietario ? MyParkingsScreen : HomeScreen}
         options={{
-          title: "Explorar",
+          // "Mis parqueaderos" no cabe en la barra de abajo
+          title: esPropietario ? "Parqueaderos" : "Explorar",
           tabBarIcon: ({ color }) => (
-            <Feather name="search" size={22} color={color} />
+            <Feather
+              name={esPropietario ? "home" : "search"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -119,9 +129,14 @@ export function AppNavigator() {
           component={MyBookingsScreen}
           options={{ ...encabezado, title: "" }}
         />
-         <Stack.Screen
+        <Stack.Screen
           name="AddParking"
           component={AddParkingScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="MyParkingDetail"
+          component={MyParkingDetailScreen}
           options={{ ...encabezado, title: "" }}
         />
         <Stack.Screen

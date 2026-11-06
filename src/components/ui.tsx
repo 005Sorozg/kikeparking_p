@@ -127,22 +127,27 @@ export function Chip({
   label,
   icon,
   selected,
+  disabled,
   variant = "outline",
   onPress,
 }: {
   label: string;
   icon?: FeatherName;
   selected?: boolean;
+  // Deshabilitado: gris, tachado y no responde al toque (ej: una hora ya reservada).
+  disabled?: boolean;
   variant?: "outline" | "filled";
   onPress?: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={[
         styles.chip,
         variant === "outline" ? styles.chipOutline : styles.chipFilled,
         selected && styles.chipActivo,
+        disabled && styles.chipDeshabilitado,
       ]}
     >
       {icon && (
@@ -152,7 +157,13 @@ export function Chip({
           color={selected ? colors.white : colors.text}
         />
       )}
-      <Text style={[styles.chipTexto, selected && styles.chipTextoActivo]}>
+      <Text
+        style={[
+          styles.chipTexto,
+          selected && styles.chipTextoActivo,
+          disabled && styles.chipTextoDeshabilitado,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -325,6 +336,14 @@ const styles = StyleSheet.create({
   },
   chipTextoActivo: {
     color: colors.white,
+  },
+  chipDeshabilitado: {
+    backgroundColor: colors.chip,
+    borderColor: colors.chip,
+  },
+  chipTextoDeshabilitado: {
+    color: colors.border,
+    textDecorationLine: "line-through",
   },
   placeholder: {
     backgroundColor: colors.imagePlaceholder,
