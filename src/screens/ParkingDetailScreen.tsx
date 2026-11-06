@@ -90,7 +90,7 @@ export function ParkingDetailScreen({
         <Text style={styles.precioUnidad}> / hora</Text>
       </Text>
       <Text style={[styles.estado, !spot.disponible && styles.estadoOcupado]}>
-        {spot.disponible ? "Disponible" : "Ocupado"}
+        {spot.disponible ? "Disponible" : "No disponible por ahora"}
       </Text>
 
       <View style={styles.boton}>

@@ -1,60 +1,211 @@
-// Reservas ficticias en memoria (se reemplazan por la API más adelante).
-export type VehicleKind = "carro" | "moto";
+import type { ImageSourcePropType } from "react-native";
+import { apiRequest } from "./api";
+import { imagenDeParqueadero } from "./parking";
 
-export interface Booking {
-  id: string;
-  parkingSpotId: string;
-  vehiculo: VehicleKind;
-  // Fecha de entrada en ISO (YYYY-MM-DD) y cantidad de días reservados.
-  entrada: string;
-  dias: number;
-  total: number;
+export type VehicleKind = "carro" | "moto";
+export type EstadoReserva = "confirmed" | "cancelled";
+
+// ---------- Datos reales (API) ----------
+
+// Así responde el backend (/bookings).
+interface ReservaApi {
+  id: number;
+  vehicleType: VehicleKind;
+  startAt: string;
+  endAt: string;
+  hours: number;
+  totalPrice: number;
+  status: EstadoReserva;
+  parkingSpot: {
+    id: number;
+    title: string;
+    neighborhood: string;
+    address: string;
+    pricePerHour: number;
+  };
+  driver: {
+    id: number;
+    name: string;
+  };
 }
+
+// Así la usan las pantallas.
+export interface Reserva {
+  id: number;
+  vehiculo: VehicleKind;
+  entrada: Date;
+  salida: Date;
+  horas: number;
+  total: number;
+  estado: EstadoReserva;
+  parqueadero: {
+    id: string;
+    titulo: string;
+    barrio: string;
+    direccion: string;
+    imagen: ImageSourcePropType;
+  };
+  conductor: {
+    id: number;
+    nombre: string;
+  };
+}
+
+const aReserva = (r: ReservaApi): Reserva => ({
+  id: r.id,
+  vehiculo: r.vehicleType,
+  entrada: new Date(r.startAt),
+  salida: new Date(r.endAt),
+  horas: r.hours,
+  total: r.totalPrice,
+  estado: r.status,
+  parqueadero: {
+    id: String(r.parkingSpot.id),
+    titulo: r.parkingSpot.title,
+    barrio: r.parkingSpot.neighborhood,
+    direccion: r.parkingSpot.address,
+    imagen: imagenDeParqueadero(r.parkingSpot.id),
+  },
+  conductor: { id: r.driver.id, nombre: r.driver.name },
+});
+
+export interface DatosReserva {
+  parqueaderoId: string;
+  vehiculo: VehicleKind;
+  entrada: Date;
+  horas: number;
+}
+
+// POST /bookings (solo conductores). El precio lo calcula el backend.
+export async function crearReserva(
+  datos: DatosReserva,
+  token: string,
+): Promise<Reserva> {
+  const dato = await apiRequest<ReservaApi>("/bookings", {
+    method: "POST",
+    token,
+    body: {
+      parkingSpotId: Number(datos.parqueaderoId),
+      vehicleType: datos.vehiculo,
+      // toISOString va en UTC; el backend guarda la hora exacta sin importar la zona.
+      startAt: datos.entrada.toISOString(),
+      hours: datos.horas,
+    },
+  });
+
+  return aReserva(dato);
+}
+
+// GET /bookings/mine (conductor): las reservas que hizo.
+export async function obtenerMisReservas(token: string): Promise<Reserva[]> {
+  const datos = await apiRequest<ReservaApi[]>("/bookings/mine", { token });
+
+  return datos.map(aReserva);
+}
+
+export async function obtenerReservasRecibidas(
+  token: string,
+  parqueaderoId?: string,
+): Promise<Reserva[]> {
+  const filtro = parqueaderoId ? `?parkingSpotId=${parqueaderoId}` : "";
+  const datos = await apiRequest<ReservaApi[]>(`/bookings/received${filtro}`, {
+    token,
+  });
+
+  return datos.map(aReserva);
+}
+
+// PATCH /bookings/:id/cancel (el conductor que reservó o el dueño).
+export async function cancelarReserva(
+  id: number,
+  token: string,
+): Promise<Reserva> {
+  const dato = await apiRequest<ReservaApi>(`/bookings/${id}/cancel`, {
+    method: "PATCH",
+    token,
+  });
+
+  return aReserva(dato);
+}
+
+export interface HorarioOcupado {
+  entrada: Date;
+  salida: Date;
+}
+
+// GET /bookings/occupied?parkingSpotId=: horarios ya reservados de un parqueadero.
+export async function obtenerHorariosOcupados(
+  parqueaderoId: string,
+  token: string,
+): Promise<HorarioOcupado[]> {
+  const datos = await apiRequest<{ startAt: string; endAt: string }[]>(
+    `/bookings/occupied?parkingSpotId=${parqueaderoId}`,
+    { token },
+  );
+
+  return datos.map((d) => ({
+    entrada: new Date(d.startAt),
+    salida: new Date(d.endAt),
+  }));
+}
+
+// ---------- Formato de fechas ----------
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
 ];
 
-export const aIso = (fecha: Date) =>
-  `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+const mismoDia = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
 
-const desdeIso = (iso: string) => {
-  const [a, m, d] = iso.split("-").map(Number);
-  return new Date(a, m - 1, d);
+// "7 de nov."
+export const formatearFecha = (fecha: Date) =>
+  `${fecha.getDate()} de ${MESES[fecha.getMonth()]}.`;
+
+// "8:00 a. m."
+export const formatearHora = (fecha: Date) => {
+  const h = fecha.getHours();
+  const m = String(fecha.getMinutes()).padStart(2, "0");
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m} ${h < 12 ? "a. m." : "p. m."}`;
 };
 
-export const formatearFecha = (iso: string) => {
-  const f = desdeIso(iso);
-  return `${f.getDate()} de ${MESES[f.getMonth()]}.`;
-};
-
-// "3 - 5 de feb." o "30 de ene. - 2 de feb." si cruza de mes.
-export const formatearRango = (entrada: string, dias: number) => {
-  const inicio = desdeIso(entrada);
-  const fin = new Date(inicio);
-  fin.setDate(fin.getDate() + dias);
-  if (inicio.getMonth() === fin.getMonth()) {
-    return `${inicio.getDate()} - ${fin.getDate()} de ${MESES[fin.getMonth()]}.`;
+// "7 de nov. · 8:00 a. m. - 11:00 a. m." o, si pasa a otro día,
+// "7 de nov. 8:00 p. m. - 8 de nov. 2:00 a. m."
+export const formatearRango = (entrada: Date, salida: Date) => {
+  if (mismoDia(entrada, salida)) {
+    return `${formatearFecha(entrada)} · ${formatearHora(entrada)} - ${formatearHora(salida)}`;
   }
-  return `${formatearFecha(entrada)} - ${formatearFecha(aIso(fin))}`;
+  return `${formatearFecha(entrada)} ${formatearHora(entrada)} - ${formatearFecha(salida)} ${formatearHora(salida)}`;
 };
 
-export const esProxima = (reserva: Booking) => {
-  const fin = desdeIso(reserva.entrada);
-  fin.setDate(fin.getDate() + reserva.dias);
-  return fin.getTime() >= desdeIso(aIso(new Date())).getTime();
-};
+// Próxima = confirmada y todavía no termina.
+export const esProxima = (reserva: Reserva) =>
+  reserva.estado === "confirmed" && reserva.salida.getTime() > Date.now();
 
-export const bookings: Booking[] = [
-  { id: "b1", parkingSpotId: "1", vehiculo: "carro", entrada: "2026-05-01", dias: 2, total: 100000 },
-  { id: "b2", parkingSpotId: "4", vehiculo: "carro", entrada: "2026-04-18", dias: 1, total: 48000 },
-  { id: "b3", parkingSpotId: "2", vehiculo: "moto", entrada: "2026-02-03", dias: 1, total: 65000 },
-  { id: "b4", parkingSpotId: "3", vehiculo: "carro", entrada: "2025-12-12", dias: 3, total: 105000 },
-];
+// ---------- Estadísticas (vista del propietario) ----------
 
-export const agregarReserva = (reserva: Omit<Booking, "id">) => {
-  const nueva = { ...reserva, id: `b${bookings.length + 1}` };
-  bookings.unshift(nueva);
-  return nueva;
+export interface Estadisticas {
+  // Reservas confirmadas (las canceladas no cuentan)
+  total: number;
+  proximas: number;
+  horas: number;
+  // Suma de las confirmadas, incluidas las que aún no ocurren
+  ingresos: number;
+  canceladas: number;
+}
+
+export const calcularEstadisticas = (reservas: Reserva[]): Estadisticas => {
+  const confirmadas = reservas.filter((r) => r.estado === "confirmed");
+
+  return {
+    total: confirmadas.length,
+    proximas: confirmadas.filter(esProxima).length,
+    horas: confirmadas.reduce((suma, r) => suma + r.horas, 0),
+    ingresos: confirmadas.reduce((suma, r) => suma + r.total, 0),
+    canceladas: reservas.length - confirmadas.length,
+  };
 };
