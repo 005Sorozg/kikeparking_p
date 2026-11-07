@@ -1,7 +1,10 @@
-// URL base del backend.
-// - Navegador (npm run web): localhost funciona tal cual.
-// - Celular con Expo Go: cambia "localhost" por la IP de tu PC en la red (ej: 192.168.43.100).
-export const API_BASE_URL = "http://localhost:3000/kikeparking-api/v1";
+// URL de la API. Se toma de EXPO_PUBLIC_API_URL (archivo .env.local); si no existe,
+// se usa el backend local. Ejemplos:
+// - Navegador:          http://localhost:3000/kikeparking-api/v1
+// - Celular (Expo Go):  http://192.168.1.10:3000/kikeparking-api/v1  (IP de tu PC)
+// - Servidor (Render):  https://kikeparking-api.onrender.com/kikeparking-api/v1
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/kikeparking-api/v1";
 
 // Error con el mensaje que explica el backend (ej: "Correo o contraseña incorrectos").
 export class ApiError extends Error {
