@@ -24,12 +24,13 @@ import {
   obtenerReservasRecibidas,
 } from "../services/bookings";
 import { useAuth } from "../context/AuthContext";
-import { ImagePlaceholder } from "../components/ui";
+import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Vista del propietario de uno de sus parqueaderos: estadísticas y reservas.
 export function MyParkingDetailScreen({
   route,
+  navigation,
 }: AppScreenProps<"MyParkingDetail">) {
   const { token } = useAuth();
   const { parkingSpotId } = route.params;
@@ -140,6 +141,15 @@ export function MyParkingDetailScreen({
             {spot.disponible ? "Disponible" : "Pausado"}
           </Text>
         </View>
+      </View>
+
+            <View style={styles.botonEditar}>
+        <PrimaryButton
+          label="Editar información"
+          onPress={() =>
+            navigation.navigate("EditParking", { parkingSpotId: spot.id })
+          }
+        />
       </View>
 
       <View style={styles.pausa}>
@@ -287,6 +297,9 @@ const styles = StyleSheet.create({
   },
   estadoPausado: {
     color: colors.textLight,
+  },
+    botonEditar: {
+    marginTop: spacing.md,
   },
   pausa: {
     flexDirection: "row",

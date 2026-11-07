@@ -228,3 +228,22 @@ export async function cambiarDisponibilidad(
 
   return aParqueadero(dato);
 }
+
+export async function editarParqueadero(
+  id: string,
+  datos: Partial<DatosParqueadero>,
+  token: string,
+): Promise<Parqueadero> {
+  const dato = await apiRequest<ParqueaderoApi>(`/parking-spots/${id}`, {
+    method: "PATCH",
+    token,
+    body: {
+      ...(datos.titulo !== undefined && { title: datos.titulo }),
+      ...(datos.barrio !== undefined && { neighborhood: datos.barrio }),
+      ...(datos.direccion !== undefined && { address: datos.direccion }),
+      ...(datos.precioHora !== undefined && { pricePerHour: datos.precioHora }),
+    },
+  });
+
+  return aParqueadero(dato);
+}
