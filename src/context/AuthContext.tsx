@@ -1,5 +1,12 @@
-import React, { createContext, ReactNode, useContext, useState } from "react";
-import { apiRequest } from "../services/api";
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { apiRequest, registrarAlRechazarToken } from "../services/api";
+import { borrarSesion, guardarSesion, leerSesion } from "../services/session";
 
 export type Rol = "conductor" | "propietario";
 
@@ -20,6 +27,8 @@ interface DatosRegistro {
 interface AuthContextValue {
   usuario: Usuario | null;
   token: string | null;
+  // true mientras se lee la sesión guardada al abrir la app
+  cargando: boolean;
   iniciarSesion: (email: string, password: string) => Promise<void>;
   registrar: (datos: DatosRegistro) => Promise<void>;
   cerrarSesion: () => void;
@@ -35,6 +44,29 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  const cerrarSesion = () => {
+    setUsuario(null);
+    setToken(null);
+    borrarSesion();
+  };
+
+  // Al abrir la app: recuperar la sesión guardada, si existe y no ha vencido.
+  useEffect(() => {
+    leerSesion()
+      .then((sesion) => {
+        if (sesion) {
+          setUsuario(sesion.usuario);
+          setToken(sesion.token);
+        }
+      })
+      .finally(() => setCargando(false));
+
+    // Si el backend rechaza el token en cualquier pantalla, se cierra la sesión.
+    registrarAlRechazarToken(cerrarSesion);
+    return () => registrarAlRechazarToken(null);
+  }, []);
 
   const iniciarSesion = async (email: string, password: string) => {
     const respuesta = await apiRequest<LoginResponse>("/users/login", {
@@ -44,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUsuario(respuesta.user);
     setToken(respuesta.token);
+    await guardarSesion({ usuario: respuesta.user, token: respuesta.token });
   };
 
   // El registro no devuelve token, así que al terminar iniciamos sesión con los mismos datos.
@@ -56,14 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await iniciarSesion(datos.email, datos.password);
   };
 
-  const cerrarSesion = () => {
-    setUsuario(null);
-    setToken(null);
-  };
-
   return (
     <AuthContext.Provider
-      value={{ usuario, token, iniciarSesion, registrar, cerrarSesion }}
+      value={{ usuario, token, cargando, iniciarSesion, registrar, cerrarSesion }}
     >
       {children}
     </AuthContext.Provider>

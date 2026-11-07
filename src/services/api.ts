@@ -6,6 +6,14 @@
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/kikeparking-api/v1";
 
+// Qué hacer cuando el backend rechaza el token (vencido o inválido).
+// Lo registra AuthContext para cerrar la sesión.
+let alRechazarToken: (() => void) | null = null;
+
+export function registrarAlRechazarToken(funcion: (() => void) | null) {
+  alRechazarToken = funcion;
+}  
+
 // Error con el mensaje que explica el backend (ej: "Correo o contraseña incorrectos").
 export class ApiError extends Error {
   constructor(
@@ -47,6 +55,11 @@ export async function apiRequest<T>(
   }
 
   const data = await response.json().catch(() => null);
+
+  // 401 en una petición con token = la sesión ya no sirve (ej: el token venció)
+  if (response.status === 401 && options.token) {
+    alRechazarToken?.();
+  }
 
   if (!response.ok) {
     throw new ApiError(
