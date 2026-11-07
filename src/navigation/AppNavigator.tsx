@@ -1,5 +1,9 @@
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
@@ -21,6 +25,12 @@ import { AddParkingScreen } from "../screens/AddParkingScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { tituloDe } from "../services/chat";
 import { colors } from "../styles/theme";
+
+// Permite navegar desde fuera de una pantalla (ej: mandar al login si la sesión vence).
+const navigationRef = createNavigationContainerRef<AppStackParamList>();
+
+// Pantallas a las que se puede estar sin sesión.
+const PANTALLAS_SIN_SESION = ["Login", "LoginPassword", "Register"];
 
 // Encabezado de las pantallas que se abren encima de las pestañas.
 const encabezado = {
@@ -99,10 +109,40 @@ function MainTabs() {
 }
 
 export function AppNavigator() {
+  const { usuario, cargando } = useAuth();
+
+  // Si la sesión se cierra estando dentro de la app (ej: el backend rechazó el token
+  // porque venció), se vuelve al login.
+  useEffect(() => {
+    if (cargando || usuario || !navigationRef.isReady()) return;
+
+    const actual = navigationRef.getCurrentRoute()?.name;
+    if (actual && !PANTALLAS_SIN_SESION.includes(actual)) {
+      navigationRef.reset({ index: 0, routes: [{ name: "Login" }] });
+    }
+  }, [usuario, cargando]);
+
+  // Mientras se lee la sesión guardada no se sabe si empezar en Login o en Home.
+  if (cargando) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
-        initialRouteName="Login"
+        // Con sesión guardada se entra directo a la app
+        initialRouteName={usuario ? "Home" : "Login"}
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
