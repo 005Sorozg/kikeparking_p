@@ -15,6 +15,8 @@ export interface Usuario {
   name: string;
   email: string;
   role: Rol;
+  // URL de la foto de perfil; si no tiene, la app muestra el ícono de persona
+  avatarUrl?: string | null;
 }
 
 interface DatosRegistro {
@@ -31,6 +33,7 @@ interface AuthContextValue {
   cargando: boolean;
   iniciarSesion: (email: string, password: string) => Promise<void>;
   registrar: (datos: DatosRegistro) => Promise<void>;
+  actualizarUsuario: (usuario: Usuario) => Promise<void>;
   cerrarSesion: () => void;
 }
 
@@ -89,9 +92,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await iniciarSesion(datos.email, datos.password);
   };
 
+  // Actualiza los datos del usuario (por ejemplo, su foto) y los guarda en la sesión
+  const actualizarUsuario = async (nuevo: Usuario) => {
+    setUsuario(nuevo);
+
+    if (token) {
+      await guardarSesion({ usuario: nuevo, token });
+    }
+  };
+
   return (
     <AuthContext.Provider
-      value={{ usuario, token, cargando, iniciarSesion, registrar, cerrarSesion }}
+      value={{
+        usuario,
+        token,
+        cargando,
+        iniciarSesion,
+        registrar,
+        actualizarUsuario,
+        cerrarSesion,
+      }}
     >
       {children}
     </AuthContext.Provider>
