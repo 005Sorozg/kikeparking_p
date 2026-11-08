@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +25,7 @@ export function ParkingDetailScreen({
 }: AppScreenProps<"ParkingDetail">) {
   const [spot, setSpot] = useState<Parqueadero | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fotoActiva, setFotoActiva] = useState(0);
 
   useEffect(() => {
     let activo = true;
@@ -65,11 +68,29 @@ export function ParkingDetailScreen({
       style={styles.contenedor}
       contentContainerStyle={styles.contenido}
     >
-      <ImagePlaceholder
+    <ImagePlaceholder
         style={styles.foto}
         iconSize={96}
-        source={spot.imagen}
+        source={
+          spot.fotos[fotoActiva] ? { uri: spot.fotos[fotoActiva].url } : undefined
+        }
       />
+
+      {spot.fotos.length > 1 && (
+        <View style={styles.miniaturas}>
+          {spot.fotos.map((foto, indice) => (
+            <Pressable key={foto.id} onPress={() => setFotoActiva(indice)}>
+              <Image
+                source={{ uri: foto.url }}
+                style={[
+                  styles.miniatura,
+                  indice === fotoActiva && styles.miniaturaActiva,
+                ]}
+              />
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <View style={styles.filaTitulo}>
         <Text style={styles.titulo}>{spot.titulo}</Text>
@@ -129,6 +150,23 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     borderRadius: radius.lg,
     marginBottom: spacing.md,
+  },
+    miniaturas: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  miniatura: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    opacity: 0.6,
+  },
+  miniaturaActiva: {
+    opacity: 1,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   filaTitulo: {
     flexDirection: "row",
