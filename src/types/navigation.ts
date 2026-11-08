@@ -17,7 +17,6 @@ export type AppStackParamList = {
   Login: undefined;
   LoginPassword: { identifier: string };
   Register: undefined;
-  // "Home" es el contenedor de las pestañas.
   Home: NavigatorScreenParams<MainTabParamList> | undefined;
   ParkingDetail: { parkingSpotId: string };
   Booking: { parkingSpotId: string };
@@ -26,7 +25,7 @@ export type AppStackParamList = {
   MyParkingDetail: { parkingSpotId: string };
   FavoriteCollection: { barrio: string };
   EditParking: { parkingSpotId: string };
-  Chat: { conversationId: string };
+  Chat: { conversationId: string; titulo?: string };
 };
 
 export type AppScreenProps<T extends keyof AppStackParamList> =

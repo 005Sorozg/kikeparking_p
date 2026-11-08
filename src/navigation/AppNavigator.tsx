@@ -24,7 +24,6 @@ import { MyBookingsScreen } from "../screens/MyBookingsScreen";
 import { AddParkingScreen } from "../screens/AddParkingScreen";
 import { EditParkingScreen } from "../screens/EditParkingScreen";
 import { ChatScreen } from "../screens/ChatScreen";
-import { tituloDe } from "../services/chat";
 import { FavoriteCollectionScreen } from "../screens/FavoriteCollectionScreen";
 import { colors } from "../styles/theme";
 
@@ -197,10 +196,8 @@ export function AppNavigator() {
         <Stack.Screen
           name="Chat"
           component={ChatScreen}
-          options={({ route }) => ({
-            ...encabezado,
-            title: tituloDe(route.params.conversationId),
-          })}
+          // El título (nombre de la otra persona) lo pone la pantalla del chat
+          options={{ ...encabezado, title: "" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
