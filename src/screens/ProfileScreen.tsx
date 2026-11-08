@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { CommonActions } from "@react-navigation/native";
+import { CommonActions, useFocusEffect } from "@react-navigation/native";
 import type { MainTabScreenProps } from "../types/navigation";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,13 +21,11 @@ import { colors, radius, shadow, spacing } from "../styles/theme";
 import { useAuth } from "../context/AuthContext";
 import * as ImagePicker from "expo-image-picker";
 import { quitarAvatar, subirAvatar } from "../services/profile";
-
-// Datos ficticios: más adelante vendrán del usuario que inició sesión.
-const ESTADISTICAS = [
-  { valor: "4", etiqueta: "Reservas" },
-  { valor: "4", etiqueta: "Reseñas" },
-  { valor: "2", etiqueta: "Años en Kike Parking" },
-];
+import {
+  calcularEstadisticas,
+  obtenerMisReservas,
+  obtenerReservasRecibidas,
+} from "../services/bookings";
 
 const OPCIONES: { icono: "settings" | "help-circle"; texto: string }[] = [
   { icono: "settings", texto: "Configuración de la cuenta" },
@@ -36,13 +34,40 @@ const OPCIONES: { icono: "settings" | "help-circle"; texto: string }[] = [
 
 export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
   const insets = useSafeAreaInsets();
-    const {
+  const {
     usuario,
     token,
     actualizarUsuario,
     cerrarSesion: borrarSesion,
   } = useAuth();
+  const esPropietario = usuario?.role === "propietario";
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  // Reservas confirmadas del usuario (null = cargando o no disponible)
+  const [totalReservas, setTotalReservas] = useState<number | null>(null);
+
+  // El conductor cuenta las reservas que hizo; el propietario, las que recibió.
+  // Se recalcula cada vez que se vuelve a esta pestaña (por ejemplo, tras reservar o cancelar).
+  useFocusEffect(
+    useCallback(() => {
+      if (!token) return;
+
+      let activo = true;
+      const pedir = esPropietario ? obtenerReservasRecibidas : obtenerMisReservas;
+
+      pedir(token)
+        .then((datos) => {
+          if (activo) setTotalReservas(calcularEstadisticas(datos).total);
+        })
+        .catch(() => {
+          // Si falla, se muestra un guion en lugar de un número inventado
+          if (activo) setTotalReservas(null);
+        });
+
+      return () => {
+        activo = false;
+      };
+    }, [token, esPropietario]),
+  );
 
   // Abre la galería, deja recortar en cuadrado y sube la foto elegida
   const elegirFoto = async () => {
@@ -113,6 +138,7 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
       CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }),
     );
   };
+
   return (
     <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.acciones}>
@@ -123,7 +149,7 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
       <ScrollView contentContainerStyle={styles.contenido}>
         <View style={[styles.tarjeta, styles.tarjetaPerfil]}>
           <View style={styles.perfil}>
-                        <Pressable onPress={cambiarFoto} disabled={subiendoFoto}>
+            <Pressable onPress={cambiarFoto} disabled={subiendoFoto}>
               <AvatarPlaceholder
                 size={84}
                 source={
@@ -140,20 +166,15 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
             </Pressable>
             <Text style={styles.nombre}>{usuario?.name ?? "Invitado"}</Text>
             <Text style={styles.ubicacion}>
-              {usuario?.role === "propietario" ? "Propietario" : "Conductor"}
+              {esPropietario ? "Propietario" : "Conductor"}
             </Text>
           </View>
 
           <View style={styles.estadisticas}>
-            {ESTADISTICAS.map((e, i) => (
-              <View
-                key={e.etiqueta}
-                style={[styles.estadistica, i > 0 && styles.estadisticaLinea]}
-              >
-                <Text style={styles.estadisticaValor}>{e.valor}</Text>
-                <Text style={styles.estadisticaEtiqueta}>{e.etiqueta}</Text>
-              </View>
-            ))}
+            <Text style={styles.estadisticaValor}>{totalReservas ?? "-"}</Text>
+            <Text style={styles.estadisticaEtiqueta}>
+              {esPropietario ? "Reservas recibidas" : "Reservas"}
+            </Text>
           </View>
         </View>
 
@@ -169,18 +190,9 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
             />
             <Text style={styles.miniTexto}>Reservas anteriores</Text>
           </Pressable>
-          <View style={[styles.tarjeta, styles.tarjetaMini]}>
-            <ImagePlaceholder
-              style={{ width: 64, height: 64 }}
-              iconSize={26}
-              round
-              source={require("../../assets/images/imagen-isabel.jpg")}
-            />
-            <Text style={styles.miniTexto}>Amigos</Text>
-          </View>
         </View>
 
-        {usuario?.role === "propietario" && (
+        {esPropietario && (
           <Pressable
             style={[styles.tarjeta, styles.host]}
             onPress={() => navigation.navigate("AddParking")}
@@ -195,7 +207,7 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
             <Feather name="chevron-right" size={16} color={colors.textLight} />
           </Pressable>
         )}
-        
+
         <View style={styles.opciones}>
           {OPCIONES.map((o) => (
             <Pressable key={o.texto} style={styles.opcion}>
@@ -254,7 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-    camara: {
+  camara: {
     position: "absolute",
     right: 0,
     bottom: 0,
@@ -280,22 +292,17 @@ const styles = StyleSheet.create({
   },
   estadisticas: {
     flex: 1,
-  },
-  estadistica: {
-    paddingVertical: 6,
-  },
-  estadisticaLinea: {
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    alignItems: "center",
   },
   estadisticaValor: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 32,
+    fontWeight: "700",
     color: colors.text,
   },
   estadisticaEtiqueta: {
-    fontSize: 10,
+    fontSize: 12,
     color: colors.text,
+    textAlign: "center",
   },
   fila: {
     flexDirection: "row",
