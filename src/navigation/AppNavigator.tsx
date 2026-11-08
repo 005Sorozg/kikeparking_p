@@ -26,6 +26,7 @@ import { EditParkingScreen } from "../screens/EditParkingScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { FavoriteCollectionScreen } from "../screens/FavoriteCollectionScreen";
 import { colors } from "../styles/theme";
+import { HelpScreen } from "../screens/HelpScreen";
 
 // Permite navegar desde fuera de una pantalla (ej: mandar al login si la sesión vence).
 const navigationRef = createNavigationContainerRef<AppStackParamList>();
@@ -197,6 +198,11 @@ export function AppNavigator() {
           name="Chat"
           component={ChatScreen}
           // El título (nombre de la otra persona) lo pone la pantalla del chat
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="Help"
+          component={HelpScreen}
           options={{ ...encabezado, title: "" }}
         />
       </Stack.Navigator>
