@@ -1,6 +1,6 @@
 import type { ImageSourcePropType } from "react-native";
 import { apiRequest } from "./api";
-import { imagenDeParqueadero } from "./parking";
+
 
 export type VehicleKind = "carro" | "moto";
 export type EstadoReserva = "confirmed" | "cancelled";
@@ -22,6 +22,7 @@ interface ReservaApi {
     neighborhood: string;
     address: string;
     pricePerHour: number;
+    photoUrl?: string | null;
   };
   driver: {
     id: number;
@@ -43,7 +44,7 @@ export interface Reserva {
     titulo: string;
     barrio: string;
     direccion: string;
-    imagen: ImageSourcePropType;
+    imagen?: ImageSourcePropType;
   };
   conductor: {
     id: number;
@@ -64,7 +65,7 @@ const aReserva = (r: ReservaApi): Reserva => ({
     titulo: r.parkingSpot.title,
     barrio: r.parkingSpot.neighborhood,
     direccion: r.parkingSpot.address,
-    imagen: imagenDeParqueadero(r.parkingSpot.id),
+        imagen: r.parkingSpot.photoUrl ? { uri: r.parkingSpot.photoUrl } : undefined,
   },
   conductor: { id: r.driver.id, nombre: r.driver.name },
 });

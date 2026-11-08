@@ -1,5 +1,5 @@
 import type { ImageSourcePropType } from "react-native";
-import { apiRequest } from "./api";
+import { apiRequest, apiUploadFile } from "./api";
 
 // Datos ficticios: más adelante se reemplazan por llamadas reales a la API.
 
@@ -97,6 +97,12 @@ export const parkingSpots: ParkingSpot[] = [
 
 // ---------- Datos reales (API) ----------
 
+// Foto de un parqueadero tal como la devuelve el backend.
+export interface FotoParqueadero {
+  id: number;
+  url: string;
+}
+
 // Así responde el backend (GET /parking-spots).
 interface ParqueaderoApi {
   id: number;
@@ -107,6 +113,7 @@ interface ParqueaderoApi {
   available: boolean;
   rating: number;
   ownerId: number;
+  photos: FotoParqueadero[];
 }
 
 // Así los usan las pantallas.
@@ -119,20 +126,14 @@ export interface Parqueadero {
   disponible: boolean;
   calificacion: number;
   propietarioId: number;
-  imagen: ImageSourcePropType;
+  // Todas las fotos del parqueadero (máximo 5)
+  fotos: FotoParqueadero[];
+  // Portada (la primera foto). Si no hay fotos queda vacía y se ve el ícono de imagen.
+  imagen?: ImageSourcePropType;
 }
 
-// El backend todavía no guarda fotos: se reparten las 4 de ejemplo según el id.
-const IMAGENES_EJEMPLO: ImageSourcePropType[] = [
-  require("../../assets/images/garaje-techado.jpeg"),
-  require("../../assets/images/celda-unidad.jpg"),
-  require("../../assets/images/parqueadero-descubierto.jpg"),
-  require("../../assets/images/garaje-familiar.jpeg"),
-];
-
-// Foto de ejemplo que le toca a un parqueadero según su id.
-export const imagenDeParqueadero = (id: number): ImageSourcePropType =>
-  IMAGENES_EJEMPLO[id % IMAGENES_EJEMPLO.length];
+// Cantidad máxima de fotos por parqueadero (la misma regla del backend)
+export const MAX_FOTOS_PARQUEADERO = 5;
 
 const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
   id: String(p.id),
@@ -143,7 +144,8 @@ const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
   disponible: p.available,
   calificacion: p.rating,
   propietarioId: p.ownerId,
-  imagen: imagenDeParqueadero(p.id),
+  fotos: p.photos ?? [],
+  imagen: p.photos?.[0] ? { uri: p.photos[0].url } : undefined,
 });
 
 export interface FiltrosParqueaderos {
@@ -244,6 +246,36 @@ export async function editarParqueadero(
       ...(datos.precioHora !== undefined && { pricePerHour: datos.precioHora }),
     },
   });
+
+  return aParqueadero(dato);
+}
+
+// POST /parking-spots/:id/photos (solo el dueño): sube UNA foto y devuelve
+// el parqueadero con todas sus fotos.
+export async function subirFotoParqueadero(
+  id: string,
+  uri: string,
+  tipo: string | undefined,
+  token: string,
+): Promise<Parqueadero> {
+  const dato = await apiUploadFile<ParqueaderoApi>(
+    `/parking-spots/${id}/photos`,
+    { token, campo: "photo", uri, tipo },
+  );
+
+  return aParqueadero(dato);
+}
+
+// DELETE /parking-spots/:id/photos/:photoId (solo el dueño): borra una foto.
+export async function borrarFotoParqueadero(
+  id: string,
+  fotoId: number,
+  token: string,
+): Promise<Parqueadero> {
+  const dato = await apiRequest<ParqueaderoApi>(
+    `/parking-spots/${id}/photos/${fotoId}`,
+    { method: "DELETE", token },
+  );
 
   return aParqueadero(dato);
 }
