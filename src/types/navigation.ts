@@ -26,6 +26,7 @@ export type AppStackParamList = {
   FavoriteCollection: { barrio: string };
   EditParking: { parkingSpotId: string };
   Chat: { conversationId: string; titulo?: string };
+  Help: undefined;
 };
 
 export type AppScreenProps<T extends keyof AppStackParamList> =
