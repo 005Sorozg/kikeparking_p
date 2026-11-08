@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -9,20 +10,33 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { favoriteCollections } from "../services/favorites";
+import type { MainTabScreenProps } from "../types/navigation";
+import { agruparPorBarrio } from "../services/favorites";
+import { useFavoritos } from "../context/FavoritesContext";
 import { ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
 const MARGEN = 18;
 const ESPACIO = 14;
 
-// Favoritos: colecciones en cuadrícula. Al bajar, el título grande pasa a la barra de arriba (Estado A → B).
-export function FavoritesScreen() {
+// Favoritos: una tarjeta por barrio con los parqueaderos guardados.
+// Al bajar, el título grande pasa a la barra de arriba (Estado A → B).
+export function FavoritesScreen({ navigation }: MainTabScreenProps<"Favorites">) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { favoritos, cargados, error, recargar } = useFavoritos();
   const [compacto, setCompacto] = useState(false);
   const anchoTarjeta = (width - MARGEN * 2 - ESPACIO) / 2;
+  const colecciones = agruparPorBarrio(favoritos);
+
+  // Al volver a la pestaña se actualiza (ej: si guardó algo desde otro celular).
+  useFocusEffect(
+    useCallback(() => {
+      recargar();
+    }, [recargar]),
+  );
 
   const alHacerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
     setCompacto(e.nativeEvent.contentOffset.y > 40);
@@ -39,26 +53,36 @@ export function FavoritesScreen() {
         <Text style={[styles.tituloCompacto, !compacto && styles.oculto]}>
           Favoritos
         </Text>
-        <Pressable style={styles.editar}>
-          <Text style={styles.editarTexto}>Edita</Text>
-        </Pressable>
       </View>
 
       <FlatList
-        data={favoriteCollections}
-        keyExtractor={(item) => item.id}
+        data={colecciones}
+        keyExtractor={(item) => item.barrio}
         numColumns={2}
         onScroll={alHacerScroll}
         scrollEventThrottle={16}
         columnWrapperStyle={{ gap: ESPACIO }}
         contentContainerStyle={styles.lista}
         ListHeaderComponent={<Text style={styles.titulo}>Favoritos</Text>}
+        ListEmptyComponent={
+          !cargados ? (
+            <ActivityIndicator color={colors.primary} style={styles.cargando} />
+          ) : (
+            <Text style={styles.vacio}>
+              {error ??
+                "Aún no tienes favoritos. Toca el corazón de un parqueadero para guardarlo aquí."}
+            </Text>
+          )
+        }
         renderItem={({ item }) => {
-          const subtitulo =
-            item.subtitulo ??
-            `${item.guardados} ${item.guardados === 1 ? "guardado" : "guardados"}`;
+          const total = item.parqueaderos.length;
           return (
-            <Pressable style={{ width: anchoTarjeta, marginBottom: spacing.md }}>
+            <Pressable
+              style={{ width: anchoTarjeta, marginBottom: spacing.md }}
+              onPress={() =>
+                navigation.navigate("FavoriteCollection", { barrio: item.barrio })
+              }
+            >
               <ImagePlaceholder
                 style={{
                   width: anchoTarjeta,
@@ -66,12 +90,15 @@ export function FavoritesScreen() {
                   borderRadius: radius.lg,
                 }}
                 iconSize={36}
-                source={item.imagen}
+                // La foto de la tarjeta es la del favorito más reciente de ese barrio
+                source={item.parqueaderos[0].imagen}
               />
               <Text style={styles.nombre} numberOfLines={1}>
-                {item.titulo}
+                {item.barrio}
               </Text>
-              <Text style={styles.subtitulo}>{subtitulo}</Text>
+              <Text style={styles.subtitulo}>
+                {total} {total === 1 ? "guardado" : "guardados"}
+              </Text>
             </Pressable>
           );
         }}
@@ -106,18 +133,6 @@ const styles = StyleSheet.create({
   oculto: {
     opacity: 0,
   },
-  editar: {
-    marginLeft: "auto",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: radius.full,
-    backgroundColor: colors.chip,
-  },
-  editarTexto: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.text,
-  },
   lista: {
     paddingHorizontal: MARGEN,
     paddingBottom: spacing.xl,
@@ -140,5 +155,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textLight,
     marginTop: 2,
+  },
+  cargando: {
+    marginTop: spacing.xl,
+  },
+  vacio: {
+    fontSize: 13,
+    color: colors.textLight,
+    textAlign: "center",
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
 });

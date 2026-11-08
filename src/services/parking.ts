@@ -104,7 +104,7 @@ export interface FotoParqueadero {
 }
 
 // Así responde el backend (GET /parking-spots).
-interface ParqueaderoApi {
+export interface ParqueaderoApi {
   id: number;
   title: string;
   neighborhood: string;
@@ -135,7 +135,7 @@ export interface Parqueadero {
 // Cantidad máxima de fotos por parqueadero (la misma regla del backend)
 export const MAX_FOTOS_PARQUEADERO = 5;
 
-const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
+export const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
   id: String(p.id),
   titulo: p.title,
   barrio: p.neighborhood,

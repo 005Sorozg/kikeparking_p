@@ -16,6 +16,8 @@ import {
   obtenerParqueadero,
 } from "../services/parking";
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
+import { useFavoritos } from "../context/FavoritesContext";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Detalle de un parqueadero: se pide al backend por su id.
@@ -26,6 +28,8 @@ export function ParkingDetailScreen({
   const [spot, setSpot] = useState<Parqueadero | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fotoActiva, setFotoActiva] = useState(0);
+  const { usuario } = useAuth();
+  const { esFavorito, alternarFavorito } = useFavoritos();
 
   useEffect(() => {
     let activo = true;
@@ -68,13 +72,29 @@ export function ParkingDetailScreen({
       style={styles.contenedor}
       contentContainerStyle={styles.contenido}
     >
-    <ImagePlaceholder
-        style={styles.foto}
-        iconSize={96}
-        source={
-          spot.fotos[fotoActiva] ? { uri: spot.fotos[fotoActiva].url } : undefined
-        }
-      />
+      <View style={styles.fotoContenedor}>
+        <ImagePlaceholder
+          style={styles.foto}
+          iconSize={96}
+          source={
+            spot.fotos[fotoActiva] ? { uri: spot.fotos[fotoActiva].url } : undefined
+          }
+        />
+        {/* Solo los conductores guardan favoritos */}
+        {usuario?.role === "conductor" && (
+          <Pressable
+            style={styles.corazon}
+            hitSlop={8}
+            onPress={() => alternarFavorito(spot)}
+          >
+            <Ionicons
+              name={esFavorito(spot.id) ? "heart" : "heart-outline"}
+              size={18}
+              color={esFavorito(spot.id) ? colors.primary : "#B5B5B5"}
+            />
+          </Pressable>
+        )}
+      </View>
 
       {spot.fotos.length > 1 && (
         <View style={styles.miniaturas}>
@@ -144,12 +164,26 @@ const styles = StyleSheet.create({
   vacio: {
     color: colors.textLight,
   },
+  fotoContenedor: {
+    width: 280,
+    alignSelf: "center",
+    marginBottom: spacing.md,
+  },
   foto: {
     width: 280,
     height: 280,
-    alignSelf: "center",
     borderRadius: radius.lg,
-    marginBottom: spacing.md,
+  },
+  corazon: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
     miniaturas: {
     flexDirection: "row",
