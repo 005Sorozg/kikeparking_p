@@ -18,6 +18,7 @@ import {
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFavoritos } from "../context/FavoritesContext";
+import { abrirConversacion } from "../services/messages";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Detalle de un parqueadero: se pide al backend por su id.
@@ -28,7 +29,9 @@ export function ParkingDetailScreen({
   const [spot, setSpot] = useState<Parqueadero | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fotoActiva, setFotoActiva] = useState(0);
-  const { usuario } = useAuth();
+  const { usuario, token } = useAuth();
+  const [abriendoChat, setAbriendoChat] = useState(false);
+  const [errorChat, setErrorChat] = useState<string | null>(null);
   const { esFavorito, alternarFavorito } = useFavoritos();
 
   useEffect(() => {
@@ -66,6 +69,25 @@ export function ParkingDetailScreen({
       </View>
     );
   }
+
+  // Abre el chat con el dueño (o el que ya existía) y lleva a la conversación.
+  const contactar = async () => {
+    if (!token) return;
+
+    setAbriendoChat(true);
+    setErrorChat(null);
+    try {
+      const chat = await abrirConversacion(spot.id, token);
+      navigation.navigate("Chat", {
+        conversationId: chat.id,
+        titulo: chat.contacto.nombre,
+      });
+    } catch (e) {
+      setErrorChat(e instanceof Error ? e.message : "No se pudo abrir el chat.");
+    } finally {
+      setAbriendoChat(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -142,6 +164,20 @@ export function ParkingDetailScreen({
           }
           disabled={!spot.disponible}
         />
+        {/* Solo los conductores escriben al propietario */}
+        {usuario?.role === "conductor" && (
+          <Pressable
+            style={styles.contactar}
+            onPress={contactar}
+            disabled={abriendoChat}
+          >
+            <Ionicons name="chatbubble-outline" size={16} color={colors.text} />
+            <Text style={styles.contactarTexto}>
+              {abriendoChat ? "Abriendo chat..." : "Contactar al propietario"}
+            </Text>
+          </Pressable>
+        )}
+        {errorChat && <Text style={styles.error}>{errorChat}</Text>}
       </View>
     </ScrollView>
   );
@@ -185,7 +221,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-    miniaturas: {
+  miniaturas: {
     flexDirection: "row",
     justifyContent: "center",
     gap: spacing.sm,
@@ -249,5 +285,28 @@ const styles = StyleSheet.create({
   },
   boton: {
     marginTop: spacing.lg,
+  },
+  contactar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    // Mismo tamaño que el botón principal, pero con borde en vez de relleno
+    height: 42,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.text,
+  },
+  contactarTexto: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.text,
+  },
+  error: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: spacing.sm,
+    textAlign: "center",
   },
 });
