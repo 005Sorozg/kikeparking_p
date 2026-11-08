@@ -27,6 +27,7 @@ import { ChatScreen } from "../screens/ChatScreen";
 import { FavoriteCollectionScreen } from "../screens/FavoriteCollectionScreen";
 import { colors } from "../styles/theme";
 import { HelpScreen } from "../screens/HelpScreen";
+import { AccountSettingsScreen } from "../screens/AccountSettingsScreen";
 
 // Permite navegar desde fuera de una pantalla (ej: mandar al login si la sesión vence).
 const navigationRef = createNavigationContainerRef<AppStackParamList>();
@@ -203,6 +204,11 @@ export function AppNavigator() {
         <Stack.Screen
           name="Help"
           component={HelpScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+                <Stack.Screen
+          name="AccountSettings"
+          component={AccountSettingsScreen}
           options={{ ...encabezado, title: "" }}
         />
       </Stack.Navigator>

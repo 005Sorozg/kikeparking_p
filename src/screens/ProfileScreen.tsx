@@ -30,9 +30,13 @@ import {
 const OPCIONES: {
   icono: "settings" | "help-circle";
   texto: string;
-  pantalla?: "Help";
+  pantalla?: "AccountSettings" | "Help";
 }[] = [
-  { icono: "settings", texto: "Configuración de la cuenta" },
+  {
+    icono: "settings",
+    texto: "Configuración de la cuenta",
+    pantalla: "AccountSettings",
+  },
   { icono: "help-circle", texto: "Obtén ayuda", pantalla: "Help" },
 ];
 
