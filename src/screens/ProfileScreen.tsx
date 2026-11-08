@@ -27,9 +27,13 @@ import {
   obtenerReservasRecibidas,
 } from "../services/bookings";
 
-const OPCIONES: { icono: "settings" | "help-circle"; texto: string }[] = [
+const OPCIONES: {
+  icono: "settings" | "help-circle";
+  texto: string;
+  pantalla?: "Help";
+}[] = [
   { icono: "settings", texto: "Configuración de la cuenta" },
-  { icono: "help-circle", texto: "Obtén ayuda" },
+  { icono: "help-circle", texto: "Obtén ayuda", pantalla: "Help" },
 ];
 
 export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
@@ -210,7 +214,11 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
 
         <View style={styles.opciones}>
           {OPCIONES.map((o) => (
-            <Pressable key={o.texto} style={styles.opcion}>
+            <Pressable
+              key={o.texto}
+              style={styles.opcion}
+              onPress={() => o.pantalla && navigation.navigate(o.pantalla)}
+            >
               <Feather name={o.icono} size={18} color={colors.text} />
               <Text style={styles.opcionTexto}>{o.texto}</Text>
               <Feather name="chevron-right" size={16} color={colors.textLight} />
