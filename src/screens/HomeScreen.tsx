@@ -19,6 +19,7 @@ import {
   obtenerParqueaderos,
 } from "../services/parking";
 import { Chip, ImagePlaceholder } from "../components/ui";
+import { useFavoritos } from "../context/FavoritesContext";
 import { colors, radius, shadow, spacing } from "../styles/theme";
 
 type Orden = "rating" | "price" | null;
@@ -32,8 +33,8 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const [parqueaderos, setParqueaderos] = useState<Parqueadero[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Favoritos locales: todavía no hay endpoint, así que solo viven en la pantalla.
-  const [favoritos, setFavoritos] = useState<Record<string, boolean>>({});
+  // Favoritos compartidos con el detalle y la pestaña Favoritos (vienen del backend).
+  const { esFavorito, alternarFavorito } = useFavoritos();
 
   // Se ejecuta al abrir la pantalla, al volver a ella (ej: después de publicar un
   // parqueadero) y cada vez que cambia un filtro. El retraso de 300 ms evita
@@ -73,9 +74,6 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
 
   const alternarOrden = (valor: "rating" | "price") =>
     setOrden((actual) => (actual === valor ? null : valor));
-
-  const alternarFavorito = (id: string) =>
-    setFavoritos((actuales) => ({ ...actuales, [id]: !actuales[id] }));
 
   return (
     <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
@@ -124,7 +122,7 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
         contentContainerStyle={styles.lista}
         ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
         renderItem={({ item }) => {
-          const esFavorito = favoritos[item.id];
+          const favorito = esFavorito(item.id);
           return (
             <Pressable
               style={styles.tarjeta}
@@ -141,12 +139,12 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
                 <Pressable
                   style={styles.corazon}
                   hitSlop={8}
-                  onPress={() => alternarFavorito(item.id)}
+                  onPress={() => alternarFavorito(item)}
                 >
                   <Ionicons
-                    name={esFavorito ? "heart" : "heart-outline"}
+                    name={favorito ? "heart" : "heart-outline"}
                     size={16}
-                    color={esFavorito ? colors.primary : "#B5B5B5"}
+                    color={favorito ? colors.primary : "#B5B5B5"}
                   />
                 </Pressable>
               </View>

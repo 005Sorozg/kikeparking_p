@@ -1,19 +1,41 @@
-import type { ImageSourcePropType } from "react-native";
+import { apiRequest } from "./api";
+import { Parqueadero, ParqueaderoApi, aParqueadero } from "./parking";
 
-// Colecciones de favoritos ficticias (se reemplazan por la API más adelante).
-export interface FavoriteCollection {
-  id: string;
-  titulo: string;
-  // Texto fijo ("Hace 1 semana") o cantidad de parqueaderos guardados.
-  subtitulo?: string;
-  guardados?: number;
-  imagen?: ImageSourcePropType;
+// GET /favorites (conductor): sus parqueaderos guardados, del más reciente al más antiguo.
+export async function obtenerFavoritos(token: string): Promise<Parqueadero[]> {
+  const datos = await apiRequest<ParqueaderoApi[]>("/favorites", { token });
+
+  return datos.map(aParqueadero);
 }
 
-export const favoriteCollections: FavoriteCollection[] = [
-  { id: "1", titulo: "Vistos recientemente", subtitulo: "Hace 1 semana", imagen: require("../../assets/images/vistos-recientemente.jpg") },
-  { id: "2", titulo: "Medellín 2026", guardados: 13, imagen: require("../../assets/images/medellin-2026.jpeg") },
-  { id: "3", titulo: "Santa Elena 2026", guardados: 10, imagen: require("../../assets/images/santa-elena-2026.jpeg") },
-  { id: "4", titulo: "Laureles 2026", guardados: 1, imagen: require("../../assets/images/laureles-2026.jpeg") },
-  { id: "5", titulo: "Belén 2026", guardados: 4, imagen: require("../../assets/images/belen-2026.jpeg") },
-];
+// PUT /favorites/:id: guardar (si ya estaba guardado, no pasa nada).
+export async function agregarFavorito(id: string, token: string): Promise<void> {
+  await apiRequest<void>(`/favorites/${id}`, { method: "PUT", token });
+}
+
+// DELETE /favorites/:id: quitar (si no estaba, tampoco pasa nada).
+export async function quitarFavorito(id: string, token: string): Promise<void> {
+  await apiRequest<void>(`/favorites/${id}`, { method: "DELETE", token });
+}
+
+export interface ColeccionFavoritos {
+  barrio: string;
+  parqueaderos: Parqueadero[];
+}
+
+// Agrupa los favoritos por barrio, en el orden en que aparece cada barrio
+// (el del favorito más reciente primero).
+export const agruparPorBarrio = (
+  favoritos: Parqueadero[],
+): ColeccionFavoritos[] => {
+  const grupos = new Map<string, Parqueadero[]>();
+
+  favoritos.forEach((p) => {
+    grupos.set(p.barrio, [...(grupos.get(p.barrio) ?? []), p]);
+  });
+
+  return Array.from(grupos, ([barrio, parqueaderos]) => ({
+    barrio,
+    parqueaderos,
+  }));
+};

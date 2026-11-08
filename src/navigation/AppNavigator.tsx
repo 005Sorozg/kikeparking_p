@@ -25,6 +25,7 @@ import { AddParkingScreen } from "../screens/AddParkingScreen";
 import { EditParkingScreen } from "../screens/EditParkingScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { tituloDe } from "../services/chat";
+import { FavoriteCollectionScreen } from "../screens/FavoriteCollectionScreen";
 import { colors } from "../styles/theme";
 
 // Permite navegar desde fuera de una pantalla (ej: mandar al login si la sesión vence).
@@ -75,16 +76,19 @@ function MainTabs() {
           ),
         }}
       />
-      <Tab.Screen
-        name="Favorites"
-        component={FavoritesScreen}
-        options={{
-          title: "Favoritos",
-          tabBarIcon: ({ color }) => (
-            <Feather name="heart" size={22} color={color} />
-          ),
-        }}
-      />
+      {/* Los favoritos son de los conductores: al propietario no se le muestra la pestaña */}
+      {!esPropietario && (
+        <Tab.Screen
+          name="Favorites"
+          component={FavoritesScreen}
+          options={{
+            title: "Favoritos",
+            tabBarIcon: ({ color }) => (
+              <Feather name="heart" size={22} color={color} />
+            ),
+          }}
+        />
+      )}
       <Tab.Screen
         name="Messages"
         component={MessagesScreen}
@@ -173,6 +177,11 @@ export function AppNavigator() {
         <Stack.Screen
           name="AddParking"
           component={AddParkingScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="FavoriteCollection"
+          component={FavoriteCollectionScreen}
           options={{ ...encabezado, title: "" }}
         />
         <Stack.Screen
