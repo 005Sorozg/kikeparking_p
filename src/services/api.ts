@@ -12,7 +12,7 @@ let alRechazarToken: (() => void) | null = null;
 
 export function registrarAlRechazarToken(funcion: (() => void) | null) {
   alRechazarToken = funcion;
-}  
+}
 
 // Error con el mensaje que explica el backend (ej: "Correo o contraseña incorrectos").
 export class ApiError extends Error {
@@ -26,9 +26,32 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   token?: string | null;
+}
+
+// Lee la respuesta del backend y lanza ApiError si algo salió mal.
+async function leerRespuesta<T>(
+  response: Response,
+  conToken: boolean,
+): Promise<T> {
+  const data = await response.json().catch(() => null);
+
+  // 401 en una petición con token = la sesión ya no sirve (ej: el token venció)
+  if (response.status === 401 && conToken) {
+    alRechazarToken?.();
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      data?.message ?? "Ocurrió un error inesperado.",
+      response.status,
+      data?.code,
+    );
+  }
+
+  return data as T;
 }
 
 export async function apiRequest<T>(
@@ -54,20 +77,80 @@ export async function apiRequest<T>(
     throw new ApiError("No se pudo conectar con el servidor.", 0);
   }
 
-  const data = await response.json().catch(() => null);
-
-  // 401 en una petición con token = la sesión ya no sirve (ej: el token venció)
-  if (response.status === 401 && options.token) {
-    alRechazarToken?.();
-  }
-
-  if (!response.ok) {
-    throw new ApiError(
-      data?.message ?? "Ocurrió un error inesperado.",
-      response.status,
-      data?.code,
-    );
-  }
-
-  return data as T;
+  return leerRespuesta<T>(response, Boolean(options.token));
 }
+
+interface UploadOptions {
+  token: string;
+  // Nombre del campo que espera el backend ("avatar" o "photo")
+  campo: string;
+  // Ruta local de la imagen que dejó el selector de la galería
+  uri: string;
+  tipo?: string;
+  nombre?: string;
+}
+
+// Sube una imagen como formulario con archivo (multipart/form-data).
+// Se usa XMLHttpRequest porque el fetch de las versiones nuevas de Expo no acepta
+// el formato { uri, name, type } con el que React Native adjunta archivos.
+export function apiUploadFile<T>(
+  path: string,
+  options: UploadOptions,
+): Promise<T> {
+  const formData = new FormData();
+
+  // En React Native, un archivo se adjunta como un objeto con uri, name y type
+  formData.append(options.campo, {
+    uri: options.uri,
+    name: options.nombre ?? "foto.jpg",
+    type: options.tipo ?? "image/jpeg",
+  } as unknown as Blob);
+
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open("POST", `${API_BASE_URL}${path}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${options.token}`);
+    xhr.setRequestHeader("Accept", "application/json");
+    // Margen amplio por si el servidor gratuito está despertando
+    xhr.timeout = 60000;
+
+    xhr.onload = () => {
+      let data: { message?: string; code?: string } | null = null;
+
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        data = null;
+      }
+
+      // 401 = la sesión ya no sirve (ej: el token venció)
+      if (xhr.status === 401) {
+        alRechazarToken?.();
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as T);
+
+        return;
+      }
+
+      reject(
+        new ApiError(
+          data?.message ?? "Ocurrió un error inesperado.",
+          xhr.status,
+          data?.code,
+        ),
+      );
+    };
+
+    xhr.onerror = () =>
+      reject(new ApiError("No se pudo conectar con el servidor.", 0));
+    xhr.ontimeout = () =>
+      reject(new ApiError("El servidor tardó demasiado en responder.", 0));
+
+    xhr.send(formData);
+  });
+}
+
+  
