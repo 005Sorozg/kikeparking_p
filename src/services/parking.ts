@@ -151,6 +151,16 @@ export interface ParqueaderoApi {
   hasSecurity: boolean;
   hasCameras: boolean;
   hasEvCharging: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  // Solo en /nearby
+  distanceKm?: number;
+}
+
+// Punto en el mapa
+export interface Ubicacion {
+  lat: number;
+  lng: number;
 }
 
 // Así los usan las pantallas.
@@ -164,6 +174,10 @@ export interface Parqueadero {
   calificacion: number;
   resenas: number;
   caracteristicas: Caracteristicas;
+  // null si el propietario todavía no la marcó en el mapa
+  ubicacion: Ubicacion | null;
+  // Solo cuando viene de "cercanos": a cuántos km está
+  distanciaKm?: number;
   propietarioId: number;
   // Todas las fotos del parqueadero (máximo 5)
   fotos: FotoParqueadero[];
@@ -191,6 +205,11 @@ export const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
     camaras: p.hasCameras ?? false,
     cargaElectrica: p.hasEvCharging ?? false,
   },
+  ubicacion:
+    p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined
+      ? { lat: p.latitude, lng: p.longitude }
+      : null,
+  distanciaKm: p.distanceKm,
   propietarioId: p.ownerId,
   fotos: p.photos ?? [],
   imagen: p.photos?.[0] ? { uri: p.photos[0].url } : undefined,
@@ -207,6 +226,8 @@ export interface FiltrosParqueaderos {
   vigilancia?: boolean;
   camaras?: boolean;
   cargaElectrica?: boolean;
+  // Rectángulo del mapa: solo los que se ven en pantalla
+  area?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
 }
 
 // GET /parking-spots, con los filtros que el backend ya soporta.
@@ -223,10 +244,28 @@ export async function obtenerParqueaderos(
   if (filtros.vigilancia) params.set("hasSecurity", "true");
   if (filtros.camaras) params.set("hasCameras", "true");
   if (filtros.cargaElectrica) params.set("hasEvCharging", "true");
+  if (filtros.area) {
+    params.set("minLat", String(filtros.area.minLat));
+    params.set("maxLat", String(filtros.area.maxLat));
+    params.set("minLng", String(filtros.area.minLng));
+    params.set("maxLng", String(filtros.area.maxLng));
+  }
 
   const consulta = params.toString();
   const datos = await apiRequest<ParqueaderoApi[]>(
     `/parking-spots${consulta ? `?${consulta}` : ""}`,
+  );
+
+  return datos.map(aParqueadero);
+}
+
+// GET /parking-spots/nearby: los más cercanos a un punto, del más cerca al más lejos.
+export async function obtenerCercanos(
+  ubicacion: Ubicacion,
+  limite = 10,
+): Promise<Parqueadero[]> {
+  const datos = await apiRequest<ParqueaderoApi[]>(
+    `/parking-spots/nearby?lat=${ubicacion.lat}&lng=${ubicacion.lng}&limit=${limite}`,
   );
 
   return datos.map(aParqueadero);
@@ -256,6 +295,7 @@ export interface DatosParqueadero {
   direccion: string;
   precioHora: number;
   caracteristicas?: Caracteristicas;
+  ubicacion?: Ubicacion | null;
 }
 
 // POST /parking-spots (requiere sesión iniciada: el dueño sale del token).
@@ -272,6 +312,7 @@ export async function publicarParqueadero(
       address: datos.direccion,
       pricePerHour: datos.precioHora,
       ...(datos.caracteristicas && aCaracteristicasApi(datos.caracteristicas)),
+      ...(datos.ubicacion && { latitude: datos.ubicacion.lat, longitude: datos.ubicacion.lng }),
     },
   });
 
@@ -307,6 +348,7 @@ export async function editarParqueadero(
       ...(datos.direccion !== undefined && { address: datos.direccion }),
       ...(datos.precioHora !== undefined && { pricePerHour: datos.precioHora }),
       ...(datos.caracteristicas && aCaracteristicasApi(datos.caracteristicas)),
+      ...(datos.ubicacion && { latitude: datos.ubicacion.lat, longitude: datos.ubicacion.lng }),
     },
   });
 

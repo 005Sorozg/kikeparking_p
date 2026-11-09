@@ -18,6 +18,7 @@ import {
   CARACTERISTICAS_INICIALES,
   FotoParqueadero,
   MAX_FOTOS_PARQUEADERO,
+  Ubicacion,
   borrarFotoParqueadero,
   editarParqueadero,
   obtenerParqueadero,
@@ -26,6 +27,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { Field, PrimaryButton } from "../components/ui";
 import { FeaturesPicker } from "../components/ParkingFeatures";
+import { LocationPicker } from "../components/LocationPicker";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Editar parqueadero: el propietario cambia título, ubicación y precio, y administra sus fotos.
@@ -42,6 +44,7 @@ export function EditParkingScreen({
   const [precioHora, setPrecioHora] = useState("");
   const [fotos, setFotos] = useState<FotoParqueadero[]>([]);
   const [caracteristicas, setCaracteristicas] = useState(CARACTERISTICAS_INICIALES);
+  const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null);
   // Texto de avance mientras se sube o borra una foto (null = nada en curso)
   const [progreso, setProgreso] = useState<string | null>(null);
   const [cargandoDatos, setCargandoDatos] = useState(true);
@@ -63,6 +66,7 @@ export function EditParkingScreen({
         setPrecioHora(String(spot.precioHora));
         setFotos(spot.fotos);
         setCaracteristicas(spot.caracteristicas);
+        setUbicacion(spot.ubicacion);
       })
       .catch((e) => {
         if (activo) {
@@ -198,6 +202,7 @@ export function EditParkingScreen({
           direccion: direccion.trim(),
           precioHora: precio,
           caracteristicas,
+          ubicacion,
         },
         token,
       );
@@ -287,6 +292,16 @@ export function EditParkingScreen({
         />
 
         <Text style={styles.etiquetaCampo}>Ubicación</Text>
+        {/* Al confirmar el punto, se llenan la dirección y el barrio (se pueden corregir) */}
+        <LocationPicker
+          value={ubicacion}
+          onChange={(nueva, encontrado) => {
+            setUbicacion(nueva);
+            if (encontrado.barrio) setBarrio(encontrado.barrio);
+            if (encontrado.direccion) setDireccion(encontrado.direccion);
+          }}
+        />
+        <View style={styles.espacioUbicacion} />
         <Field
           value={barrio}
           onChangeText={setBarrio}
@@ -350,6 +365,9 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
+  },
+  espacioUbicacion: {
+    height: spacing.sm,
   },
   etiquetaCampo: {
     fontSize: 12,

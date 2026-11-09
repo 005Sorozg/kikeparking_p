@@ -23,7 +23,13 @@
     },
     "plugins": [
       "expo-status-bar",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "KikeParking usa tu ubicación para mostrarte los parqueaderos cercanos."
+        }
+      ]
     ]
   }
 }
