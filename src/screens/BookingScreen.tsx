@@ -239,11 +239,17 @@ export function BookingScreen({
     setError(null);
 
     try {
-      await crearReserva(
+      // La reserva queda pendiente de pago y la hora apartada por 10 minutos
+      const reserva = await crearReserva(
         { parqueaderoId: spot.id, vehiculo, entrada, horas: horasReserva },
         token,
       );
-      navigation.replace("MyBookings");
+      navigation.replace("Payment", {
+        reservaId: reserva.id,
+        titulo: spot.titulo,
+        total: reserva.total,
+        limitePago: (reserva.limitePago ?? new Date()).toISOString(),
+      });
     } catch (e) {
       // Ej: "El parqueadero ya está reservado en ese horario..." si alguien reservó
       // mientras tanto. Se recargan los ocupados para que ese horario salga en gris.
@@ -386,7 +392,7 @@ export function BookingScreen({
 
       <View style={styles.boton}>
         <PrimaryButton
-          label={enviando ? "Reservando..." : "Confirmar reserva"}
+          label={enviando ? "Reservando..." : "Continuar al pago"}
           onPress={confirmar}
           disabled={enviando || !esConductor || !spot.disponible || !hayHora}
         />

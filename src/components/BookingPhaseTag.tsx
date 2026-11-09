@@ -4,6 +4,8 @@ import type { FaseReserva } from "../services/bookings";
 import { colors } from "../styles/theme";
 
 const FASES: Record<FaseReserva, { texto: string; color: string; fondo: string }> = {
+  pending_payment: { texto: "Pendiente de pago", color: "#B26A00", fondo: "#FFF4E0" },
+  expired: { texto: "Pago vencido", color: colors.textLight, fondo: colors.chip },
   upcoming: { texto: "Próxima", color: "#1565C0", fondo: "#E3F2FD" },
   in_progress: { texto: "En curso", color: "#2E7D32", fondo: "#E8F5E9" },
   completed: { texto: "Completada", color: colors.textLight, fondo: colors.chip },
