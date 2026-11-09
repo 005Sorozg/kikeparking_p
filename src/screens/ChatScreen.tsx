@@ -22,6 +22,7 @@ import {
   obtenerMensajes,
 } from "../services/messages";
 import { useAuth } from "../context/AuthContext";
+import { useNoLeidos } from "../context/UnreadContext";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Cada cuánto se pregunta al backend si llegaron mensajes nuevos
@@ -38,6 +39,7 @@ export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
   const { conversationId, titulo } = route.params;
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
+  const { actualizar: actualizarNoLeidos } = useNoLeidos();
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [mensajes, setMensajes] = useState<Mensaje[] | null>(null);
   const [texto, setTexto] = useState("");
@@ -71,6 +73,8 @@ export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
           if (activo) {
             recibir(nuevos);
             setError(null);
+            // Al recibirlos quedan leídos: el número de la pestaña baja de una vez
+            if (nuevos.length > 0) actualizarNoLeidos();
           }
         } catch (e) {
           if (activo) {
@@ -85,7 +89,7 @@ export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
         activo = false;
         clearInterval(temporizador);
       };
-    }, [conversationId, token, recibir]),
+    }, [conversationId, token, recibir, actualizarNoLeidos]),
   );
 
   const enviar = async () => {

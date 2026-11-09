@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppNavigator } from "./src/navigation/AppNavigator";
 import { AuthProvider } from "./src/context/AuthContext";
 import { FavoritesProvider } from "./src/context/FavoritesContext";
+import { UnreadProvider } from "./src/context/UnreadContext";
 
 export default function App() {
   return (
@@ -11,7 +12,9 @@ export default function App() {
       <StatusBar style="dark" />
       <AuthProvider>
         <FavoritesProvider>
-          <AppNavigator />
+          <UnreadProvider>
+            <AppNavigator />
+          </UnreadProvider>
         </FavoritesProvider>
       </AuthProvider>
     </SafeAreaProvider>
