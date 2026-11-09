@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { AppScreenProps } from "../types/navigation";
 import {
+  CARACTERISTICAS_INICIALES,
   FotoParqueadero,
   MAX_FOTOS_PARQUEADERO,
   borrarFotoParqueadero,
@@ -24,6 +25,7 @@ import {
 } from "../services/parking";
 import { useAuth } from "../context/AuthContext";
 import { Field, PrimaryButton } from "../components/ui";
+import { FeaturesPicker } from "../components/ParkingFeatures";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Editar parqueadero: el propietario cambia título, ubicación y precio, y administra sus fotos.
@@ -39,6 +41,7 @@ export function EditParkingScreen({
   const [direccion, setDireccion] = useState("");
   const [precioHora, setPrecioHora] = useState("");
   const [fotos, setFotos] = useState<FotoParqueadero[]>([]);
+  const [caracteristicas, setCaracteristicas] = useState(CARACTERISTICAS_INICIALES);
   // Texto de avance mientras se sube o borra una foto (null = nada en curso)
   const [progreso, setProgreso] = useState<string | null>(null);
   const [cargandoDatos, setCargandoDatos] = useState(true);
@@ -59,6 +62,7 @@ export function EditParkingScreen({
         setDireccion(spot.direccion);
         setPrecioHora(String(spot.precioHora));
         setFotos(spot.fotos);
+        setCaracteristicas(spot.caracteristicas);
       })
       .catch((e) => {
         if (activo) {
@@ -193,6 +197,7 @@ export function EditParkingScreen({
           barrio: barrio.trim(),
           direccion: direccion.trim(),
           precioHora: precio,
+          caracteristicas,
         },
         token,
       );
@@ -302,6 +307,9 @@ export function EditParkingScreen({
           placeholder="Ej: 5000"
           keyboardType="number-pad"
         />
+
+        <Text style={styles.etiquetaCampo}>Características</Text>
+        <FeaturesPicker value={caracteristicas} onChange={setCaracteristicas} />
 
         {error && <Text style={styles.error}>{error}</Text>}
 
