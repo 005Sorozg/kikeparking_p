@@ -15,12 +15,14 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { AppScreenProps } from "../types/navigation";
 import {
+  CARACTERISTICAS_INICIALES,
   MAX_FOTOS_PARQUEADERO,
   publicarParqueadero,
   subirFotoParqueadero,
 } from "../services/parking";
 import { useAuth } from "../context/AuthContext";
 import { Field, PrimaryButton } from "../components/ui";
+import { FeaturesPicker } from "../components/ParkingFeatures";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Foto elegida de la galería que todavía no se ha subido
@@ -39,6 +41,7 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
   const [direccion, setDireccion] = useState("");
   const [precioHora, setPrecioHora] = useState("");
   const [fotos, setFotos] = useState<FotoLocal[]>([]);
+  const [caracteristicas, setCaracteristicas] = useState(CARACTERISTICAS_INICIALES);
   // Texto de avance mientras se suben las fotos (null = nada en curso)
   const [progreso, setProgreso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +113,7 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
           barrio: barrio.trim(),
           direccion: direccion.trim(),
           precioHora: precio,
+          caracteristicas,
         },
         token,
       );
@@ -227,6 +231,9 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
           placeholder="Ej: 5000"
           keyboardType="number-pad"
         />
+
+        <Text style={styles.etiquetaCampo}>Características</Text>
+        <FeaturesPicker value={caracteristicas} onChange={setCaracteristicas} />
 
         {error && <Text style={styles.error}>{error}</Text>}
 

@@ -103,6 +103,36 @@ export interface FotoParqueadero {
   url: string;
 }
 
+// Características que marca el propietario (también sirven de filtro en Explorar)
+export interface Caracteristicas {
+  aceptaCarros: boolean;
+  aceptaMotos: boolean;
+  techado: boolean;
+  vigilancia: boolean;
+  camaras: boolean;
+  cargaElectrica: boolean;
+}
+
+// Las que trae un parqueadero nuevo si el propietario no cambia nada
+export const CARACTERISTICAS_INICIALES: Caracteristicas = {
+  aceptaCarros: true,
+  aceptaMotos: true,
+  techado: false,
+  vigilancia: false,
+  camaras: false,
+  cargaElectrica: false,
+};
+
+// Así se llaman en el backend
+const aCaracteristicasApi = (c: Caracteristicas) => ({
+  acceptsCars: c.aceptaCarros,
+  acceptsMotorcycles: c.aceptaMotos,
+  covered: c.techado,
+  hasSecurity: c.vigilancia,
+  hasCameras: c.camaras,
+  hasEvCharging: c.cargaElectrica,
+});
+
 // Así responde el backend (GET /parking-spots).
 export interface ParqueaderoApi {
   id: number;
@@ -115,6 +145,12 @@ export interface ParqueaderoApi {
   reviewCount: number;
   ownerId: number;
   photos: FotoParqueadero[];
+  acceptsCars: boolean;
+  acceptsMotorcycles: boolean;
+  covered: boolean;
+  hasSecurity: boolean;
+  hasCameras: boolean;
+  hasEvCharging: boolean;
 }
 
 // Así los usan las pantallas.
@@ -127,6 +163,7 @@ export interface Parqueadero {
   disponible: boolean;
   calificacion: number;
   resenas: number;
+  caracteristicas: Caracteristicas;
   propietarioId: number;
   // Todas las fotos del parqueadero (máximo 5)
   fotos: FotoParqueadero[];
@@ -146,6 +183,14 @@ export const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
   disponible: p.available,
   calificacion: p.rating,
   resenas: p.reviewCount ?? 0,
+  caracteristicas: {
+    aceptaCarros: p.acceptsCars ?? true,
+    aceptaMotos: p.acceptsMotorcycles ?? true,
+    techado: p.covered ?? false,
+    vigilancia: p.hasSecurity ?? false,
+    camaras: p.hasCameras ?? false,
+    cargaElectrica: p.hasEvCharging ?? false,
+  },
   propietarioId: p.ownerId,
   fotos: p.photos ?? [],
   imagen: p.photos?.[0] ? { uri: p.photos[0].url } : undefined,
@@ -155,6 +200,13 @@ export interface FiltrosParqueaderos {
   busqueda?: string;
   soloDisponibles?: boolean;
   orden?: "rating" | "price";
+  // Solo los que acepten este vehículo
+  vehiculo?: "carro" | "moto";
+  // En true: solo los que tengan esa característica
+  techado?: boolean;
+  vigilancia?: boolean;
+  camaras?: boolean;
+  cargaElectrica?: boolean;
 }
 
 // GET /parking-spots, con los filtros que el backend ya soporta.
@@ -166,6 +218,11 @@ export async function obtenerParqueaderos(
   if (filtros.busqueda?.trim()) params.set("search", filtros.busqueda.trim());
   if (filtros.soloDisponibles) params.set("onlyAvailable", "true");
   if (filtros.orden) params.set("sort", filtros.orden);
+  if (filtros.vehiculo) params.set("vehicle", filtros.vehiculo);
+  if (filtros.techado) params.set("covered", "true");
+  if (filtros.vigilancia) params.set("hasSecurity", "true");
+  if (filtros.camaras) params.set("hasCameras", "true");
+  if (filtros.cargaElectrica) params.set("hasEvCharging", "true");
 
   const consulta = params.toString();
   const datos = await apiRequest<ParqueaderoApi[]>(
@@ -198,6 +255,7 @@ export interface DatosParqueadero {
   barrio: string;
   direccion: string;
   precioHora: number;
+  caracteristicas?: Caracteristicas;
 }
 
 // POST /parking-spots (requiere sesión iniciada: el dueño sale del token).
@@ -213,6 +271,7 @@ export async function publicarParqueadero(
       neighborhood: datos.barrio,
       address: datos.direccion,
       pricePerHour: datos.precioHora,
+      ...(datos.caracteristicas && aCaracteristicasApi(datos.caracteristicas)),
     },
   });
 
@@ -247,6 +306,7 @@ export async function editarParqueadero(
       ...(datos.barrio !== undefined && { neighborhood: datos.barrio }),
       ...(datos.direccion !== undefined && { address: datos.direccion }),
       ...(datos.precioHora !== undefined && { pricePerHour: datos.precioHora }),
+      ...(datos.caracteristicas && aCaracteristicasApi(datos.caracteristicas)),
     },
   });
 

@@ -20,6 +20,7 @@ import {
 } from "../services/parking";
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { useFavoritos } from "../context/FavoritesContext";
+import { FiltersModal, FiltrosExtra, contarFiltros } from "../components/FiltersModal";
 import { colors, radius, shadow, spacing } from "../styles/theme";
 
 type Orden = "rating" | "price" | null;
@@ -30,6 +31,10 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const [busqueda, setBusqueda] = useState("");
   const [soloDisponibles, setSoloDisponibles] = useState(false);
   const [orden, setOrden] = useState<Orden>(null);
+  // Filtros de la ventana "Filtrar" (vehículo, techado, vigilancia...)
+  const [filtrosExtra, setFiltrosExtra] = useState<FiltrosExtra>({});
+  const [verFiltros, setVerFiltros] = useState(false);
+  const cantidadFiltros = contarFiltros(filtrosExtra);
   const [parqueaderos, setParqueaderos] = useState<Parqueadero[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +55,7 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
             busqueda,
             soloDisponibles,
             orden: orden ?? undefined,
+            ...filtrosExtra,
           });
           if (activo) setParqueaderos(datos);
         } catch (e) {
@@ -69,7 +75,7 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
         activo = false;
         clearTimeout(temporizador);
       };
-    }, [busqueda, soloDisponibles, orden]),
+    }, [busqueda, soloDisponibles, orden, filtrosExtra]),
   );
 
   const alternarOrden = (valor: "rating" | "price") =>
@@ -97,7 +103,12 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtros}
         >
-          <Chip label="Filtrar" icon="filter" />
+          <Chip
+            label={cantidadFiltros > 0 ? `Filtrar (${cantidadFiltros})` : "Filtrar"}
+            icon="filter"
+            selected={cantidadFiltros > 0}
+            onPress={() => setVerFiltros(true)}
+          />
           <Chip
             label="Solo disponibles"
             selected={soloDisponibles}
@@ -179,10 +190,22 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
             />
           ) : (
             <Text style={styles.vacio}>
-              {error ?? "No encontramos parqueaderos con esa búsqueda."}
+              {error ??
+                (cantidadFiltros > 0
+                  ? "Ningún parqueadero cumple esos filtros."
+                  : "No encontramos parqueaderos con esa búsqueda.")}
             </Text>
           )
         }
+      />
+      <FiltersModal
+        visible={verFiltros}
+        filtros={filtrosExtra}
+        onCerrar={() => setVerFiltros(false)}
+        onAplicar={(nuevos) => {
+          setFiltrosExtra(nuevos);
+          setVerFiltros(false);
+        }}
       />
     </View>
   );

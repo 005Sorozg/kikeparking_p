@@ -166,7 +166,11 @@ export function BookingScreen({
 
     obtenerParqueadero(route.params.parkingSpotId)
       .then((dato) => {
-        if (activo) setSpot(dato);
+        if (activo) {
+          setSpot(dato);
+          // Si no recibe carros, arranca con moto
+          if (!dato.caracteristicas.aceptaCarros) setVehiculo("moto");
+        }
       })
       .catch((e) => {
         if (activo) {
@@ -338,19 +342,24 @@ export function BookingScreen({
       )}
 
       <Text style={styles.seccion}>Vehículo</Text>
+      {/* Solo los vehículos que recibe este parqueadero */}
       <View style={styles.chips}>
-        <Chip
-          label="Carro"
-          icon="truck"
-          selected={vehiculo === "carro"}
-          onPress={() => setVehiculo("carro")}
-        />
-        <Chip
-          label="Moto"
-          icon="navigation"
-          selected={vehiculo === "moto"}
-          onPress={() => setVehiculo("moto")}
-        />
+        {spot.caracteristicas.aceptaCarros && (
+          <Chip
+            label="Carro"
+            icon="truck"
+            selected={vehiculo === "carro"}
+            onPress={() => setVehiculo("carro")}
+          />
+        )}
+        {spot.caracteristicas.aceptaMotos && (
+          <Chip
+            label="Moto"
+            icon="navigation"
+            selected={vehiculo === "moto"}
+            onPress={() => setVehiculo("moto")}
+          />
+        )}
       </View>
 
       <View style={styles.tarjeta}>

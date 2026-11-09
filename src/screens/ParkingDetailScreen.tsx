@@ -18,6 +18,7 @@ import {
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { ReviewItem } from "../components/ReviewItem";
+import { FeatureList } from "../components/ParkingFeatures";
 import { Resena, obtenerResenas } from "../services/reviews";
 import { useFavoritos } from "../context/FavoritesContext";
 import { abrirConversacion } from "../services/messages";
@@ -165,6 +166,10 @@ export function ParkingDetailScreen({
       <Text style={[styles.estado, !spot.disponible && styles.estadoOcupado]}>
         {spot.disponible ? "Disponible" : "No disponible por ahora"}
       </Text>
+
+      {/* Lo que marcó el propietario: vehículos, techado, vigilancia... */}
+      <Text style={styles.seccionOfrece}>Lo que ofrece</Text>
+      <FeatureList caracteristicas={spot.caracteristicas} />
 
       <View style={styles.boton}>
         <PrimaryButton
@@ -326,10 +331,18 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: "center",
   },
+  seccionOfrece: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
   seccionResenas: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.xl,
   },
+  
 });
