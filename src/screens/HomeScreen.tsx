@@ -157,9 +157,7 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
                   <View style={styles.calificacion}>
                     <Ionicons name="star" size={14} color={colors.black} />
                     <Text style={styles.calificacionTexto}>
-                      {item.calificacion > 0
-                        ? item.calificacion.toFixed(1)
-                        : "Nuevo"}
+                       {item.resenas > 0 ? item.calificacion.toFixed(1) : "Nuevo"}
                     </Text>
                   </View>
                 </View>

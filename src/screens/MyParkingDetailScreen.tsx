@@ -6,8 +6,9 @@ import {
   Switch,
   Text,
   View,
+  Pressable,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import type { AppScreenProps } from "../types/navigation";
 import {
@@ -25,6 +26,10 @@ import {
   tiempoRestante,
 } from "../services/bookings";
 import { BookingPhaseTag } from "../components/BookingPhaseTag";
+import { ReviewModal } from "../components/ReviewModal";
+import { ReviewItem } from "../components/ReviewItem";
+import { Stars } from "../components/Stars";
+import { Resena, obtenerResenas } from "../services/reviews";
 import { useAuth } from "../context/AuthContext";
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
@@ -41,6 +46,9 @@ export function MyParkingDetailScreen({
   const [error, setError] = useState<string | null>(null);
   const [cambiando, setCambiando] = useState(false);
   const [errorPausa, setErrorPausa] = useState<string | null>(null);
+  const [resenas, setResenas] = useState<Resena[]>([]);
+  // Reserva cuyo conductor se está calificando
+  const [calificando, setCalificando] = useState<Reserva | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,12 +62,13 @@ export function MyParkingDetailScreen({
       Promise.all([
         obtenerParqueadero(parkingSpotId),
         obtenerReservasRecibidas(token, parkingSpotId),
+        obtenerResenas(parkingSpotId),
       ])
-        .then(([dato, lista]) => {
+        .then(([dato, lista, opiniones]) => {
           if (!activo) return;
           setSpot(dato);
           setReservas(lista);
-          setError(null);
+          setResenas(opiniones);
         })
         .catch((e) => {
           if (activo) {
@@ -142,6 +151,12 @@ export function MyParkingDetailScreen({
             {formatearPrecio(spot.precioHora)}
             <Text style={styles.precioUnidad}> / hora</Text>
           </Text>
+          <View style={styles.calificacion}>
+            <Ionicons name="star" size={12} color={colors.text} />
+            <Text style={styles.calificacionTexto}>
+              {spot.resenas > 0 ? spot.calificacion.toFixed(1) : "Sin calificaciones todavía"}
+            </Text>
+          </View>
           <Text style={[styles.estado, !spot.disponible && styles.estadoPausado]}>
             {spot.disponible ? "Disponible" : "Pausado"}
           </Text>
@@ -200,7 +215,7 @@ export function MyParkingDetailScreen({
         <Text style={styles.vacio}>Nadie está usando el parqueadero ahora.</Text>
       )}
       {enCurso.map((r) => (
-        <FilaReserva key={r.id} reserva={r} />
+        <FilaReserva key={r.id} reserva={r} onCalificar={setCalificando} />
       ))}
 
       <Text style={styles.seccion}>Próximas reservas</Text>
@@ -208,7 +223,7 @@ export function MyParkingDetailScreen({
         <Text style={styles.vacio}>No hay reservas próximas.</Text>
       )}
       {proximas.map((r) => (
-        <FilaReserva key={r.id} reserva={r} />
+        <FilaReserva key={r.id} reserva={r} onCalificar={setCalificando} />
       ))}
 
       <Text style={styles.seccion}>Historial</Text>
@@ -216,14 +231,40 @@ export function MyParkingDetailScreen({
         <Text style={styles.vacio}>Todavía no hay reservas anteriores.</Text>
       )}
       {anteriores.map((r) => (
-        <FilaReserva key={r.id} reserva={r} />
+        <FilaReserva key={r.id} reserva={r} onCalificar={setCalificando} />
       ))}
+      <Text style={styles.seccion}>Reseñas de los conductores</Text>
+      {resenas.length === 0 && (
+        <Text style={styles.vacio}>Todavía nadie ha calificado este parqueadero.</Text>
+      )}
+      {resenas.map((r) => (
+        <ReviewItem key={r.id} resena={r} />
+      ))}
+
+      <ReviewModal
+        reservaId={calificando?.id ?? null}
+        titulo={`¿Cómo fue ${calificando?.conductor.nombre ?? ""} como conductor?`}
+        onClose={() => setCalificando(null)}
+        onRated={(id, estrellas) => {
+          setReservas((actuales) =>
+            actuales.map((r) => (r.id === id ? { ...r, miCalificacion: estrellas } : r)),
+          );
+          setCalificando(null);
+        }}
+      />
     </ScrollView>
   );
 }
 
 // Una reserva: quién, cuándo, vehículo y valor.
-function FilaReserva({ reserva: r }: { reserva: Reserva }) {
+  // Una reserva: quién (con su calificación), cuándo, vehículo y valor.
+  function FilaReserva({
+    reserva: r,
+    onCalificar,
+  }: {
+    reserva: Reserva;
+    onCalificar: (reserva: Reserva) => void;
+  }) {
   const cancelada = r.estado === "cancelled";
   return (
     <View style={styles.fila}>
@@ -233,7 +274,14 @@ function FilaReserva({ reserva: r }: { reserva: Reserva }) {
         </Text>
       </View>
       <View style={styles.filaTextos}>
-        <Text style={styles.nombre}>{r.conductor.nombre}</Text>
+          <Text style={styles.nombre}>
+            {r.conductor.nombre}
+            {r.conductor.resenas > 0 && (
+              <Text style={styles.detalle}>
+                {"  "}★ {r.conductor.calificacion.toFixed(1)}
+              </Text>
+            )}
+          </Text>
         <Text style={styles.detalle}>{formatearRango(r.entrada, r.salida)}</Text>
         <View style={styles.vehiculo}>
           <Feather
@@ -251,6 +299,17 @@ function FilaReserva({ reserva: r }: { reserva: Reserva }) {
           <Text style={styles.restante}>Sale en {tiempoRestante(r.salida)}</Text>
         )}
       </View>
+      {r.fase === "completed" && r.miCalificacion !== null && (
+        <View style={styles.calificada}>
+          <Text style={styles.detalle}>Calificaste</Text>
+          <Stars value={r.miCalificacion} size={11} />
+        </View>
+      )}
+      {r.fase === "completed" && r.miCalificacion === null && (
+        <Pressable onPress={() => onCalificar(r)}>
+          <Text style={styles.accion}>Calificar conductor</Text>
+        </Pressable>
+      )}
       <Text style={[styles.valor, cancelada && styles.valorTachado]}>
         {formatearPrecio(r.total)}
       </Text>
@@ -450,5 +509,27 @@ const styles = StyleSheet.create({
   valorTachado: {
     color: colors.textLight,
     textDecorationLine: "line-through",
+  },
+  calificacion: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
+  calificacionTexto: {
+    fontSize: 12,
+    color: colors.text,
+  },
+  calificada: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: spacing.xs,
+  },
+  accion: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.primary,
+    marginTop: spacing.xs,
   },
 });

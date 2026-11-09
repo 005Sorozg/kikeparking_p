@@ -112,6 +112,7 @@ export interface ParqueaderoApi {
   pricePerHour: number;
   available: boolean;
   rating: number;
+  reviewCount: number;
   ownerId: number;
   photos: FotoParqueadero[];
 }
@@ -125,6 +126,7 @@ export interface Parqueadero {
   precioHora: number;
   disponible: boolean;
   calificacion: number;
+  resenas: number;
   propietarioId: number;
   // Todas las fotos del parqueadero (máximo 5)
   fotos: FotoParqueadero[];
@@ -143,6 +145,7 @@ export const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
   precioHora: p.pricePerHour,
   disponible: p.available,
   calificacion: p.rating,
+  resenas: p.reviewCount ?? 0,
   propietarioId: p.ownerId,
   fotos: p.photos ?? [],
   imagen: p.photos?.[0] ? { uri: p.photos[0].url } : undefined,
