@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -158,6 +159,22 @@ export function ParkingDetailScreen({
       <Text style={styles.detalle}>
         {spot.barrio} · {spot.direccion}
       </Text>
+
+      {/* Abre Google Maps con la ruta hasta el parqueadero */}
+      {spot.ubicacion && (
+        <Pressable
+          style={styles.comoLlegar}
+          hitSlop={8}
+          onPress={() =>
+            Linking.openURL(
+              `https://www.google.com/maps/dir/?api=1&destination=${spot.ubicacion!.lat},${spot.ubicacion!.lng}`,
+            )
+          }
+        >
+          <Ionicons name="navigate-outline" size={14} color={colors.text} />
+          <Text style={styles.comoLlegarTexto}>Cómo llegar</Text>
+        </Pressable>
+      )}
 
       <Text style={styles.precio}>
         {formatearPrecio(spot.precioHora)}
@@ -330,6 +347,19 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: spacing.sm,
     textAlign: "center",
+  },
+  comoLlegar: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  comoLlegarTexto: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.text,
+    textDecorationLine: "underline",
   },
   seccionOfrece: {
     fontSize: 16,

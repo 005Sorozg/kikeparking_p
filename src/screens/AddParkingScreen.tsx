@@ -17,12 +17,14 @@ import type { AppScreenProps } from "../types/navigation";
 import {
   CARACTERISTICAS_INICIALES,
   MAX_FOTOS_PARQUEADERO,
+  Ubicacion,
   publicarParqueadero,
   subirFotoParqueadero,
 } from "../services/parking";
 import { useAuth } from "../context/AuthContext";
 import { Field, PrimaryButton } from "../components/ui";
 import { FeaturesPicker } from "../components/ParkingFeatures";
+import { LocationPicker } from "../components/LocationPicker";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Foto elegida de la galería que todavía no se ha subido
@@ -42,6 +44,7 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
   const [precioHora, setPrecioHora] = useState("");
   const [fotos, setFotos] = useState<FotoLocal[]>([]);
   const [caracteristicas, setCaracteristicas] = useState(CARACTERISTICAS_INICIALES);
+  const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null);
   // Texto de avance mientras se suben las fotos (null = nada en curso)
   const [progreso, setProgreso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +117,7 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
           direccion: direccion.trim(),
           precioHora: precio,
           caracteristicas,
+          ubicacion,
         },
         token,
       );
@@ -211,6 +215,16 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
         />
 
         <Text style={styles.etiquetaCampo}>Ubicación</Text>
+        {/* Al confirmar el punto, se llenan la dirección y el barrio (se pueden corregir) */}
+        <LocationPicker
+          value={ubicacion}
+          onChange={(nueva, encontrado) => {
+            setUbicacion(nueva);
+            if (encontrado.barrio) setBarrio(encontrado.barrio);
+            if (encontrado.direccion) setDireccion(encontrado.direccion);
+          }}
+        />
+        <View style={styles.espacioUbicacion} />
         <Field
           value={barrio}
           onChangeText={setBarrio}
@@ -275,6 +289,9 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
+  },
+  espacioUbicacion: {
+    height: spacing.sm,
   },
   etiquetaCampo: {
     fontSize: 12,

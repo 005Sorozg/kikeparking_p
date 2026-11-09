@@ -1,7 +1,8 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,7 @@ import {
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { useFavoritos } from "../context/FavoritesContext";
 import { FiltersModal, FiltrosExtra, contarFiltros } from "../components/FiltersModal";
+import { ExploreMap } from "../components/ExploreMap";
 import { colors, radius, shadow, spacing } from "../styles/theme";
 
 type Orden = "rating" | "price" | null;
@@ -35,6 +37,15 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const [filtrosExtra, setFiltrosExtra] = useState<FiltrosExtra>({});
   const [verFiltros, setVerFiltros] = useState(false);
   const cantidadFiltros = contarFiltros(filtrosExtra);
+  // Lista o mapa (el mapa solo existe en el celular)
+  const [verMapa, setVerMapa] = useState(false);
+  const hayMapa = Platform.OS !== "web";
+  // Los mismos filtros de la lista, para el mapa. useMemo evita que el mapa
+  // vuelva a pedir datos cada vez que esta pantalla se redibuja.
+  const filtrosMapa = useMemo(
+    () => ({ busqueda, soloDisponibles, ...filtrosExtra }),
+    [busqueda, soloDisponibles, filtrosExtra],
+  );
   const [parqueaderos, setParqueaderos] = useState<Parqueadero[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +138,13 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
         </ScrollView>
       </View>
 
+      {verMapa ? (
+        <ExploreMap
+          filtros={filtrosMapa}
+          onAbrir={(id) => navigation.navigate("ParkingDetail", { parkingSpotId: id })}
+        />
+      ) : (
+
       <FlatList
         data={parqueaderos}
         keyExtractor={(item) => item.id}
@@ -198,6 +216,16 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
           )
         }
       />
+      )}
+
+      {/* Botón flotante para cambiar entre lista y mapa */}
+      {hayMapa && (
+        <Pressable style={styles.botonModo} onPress={() => setVerMapa((v) => !v)}>
+          <Text style={styles.botonModoTexto}>{verMapa ? "Lista" : "Mapa"}</Text>
+          <Feather name={verMapa ? "list" : "map"} size={15} color={colors.white} />
+        </Pressable>
+      )}
+
       <FiltersModal
         visible={verFiltros}
         filtros={filtrosExtra}
@@ -255,7 +283,26 @@ const styles = StyleSheet.create({
   },
   lista: {
     padding: 18,
-    paddingBottom: spacing.xl,
+    // Espacio extra abajo para que el botón "Mapa" no tape la última tarjeta
+    paddingBottom: 90,
+  },
+  botonModo: {
+    position: "absolute",
+    bottom: 20,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: radius.full,
+    backgroundColor: colors.text,
+    ...shadow,
+  },
+  botonModoTexto: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.white,
   },
   tarjeta: {
     width: "100%",
