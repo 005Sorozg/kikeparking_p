@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { CommonActions, useFocusEffect } from "@react-navigation/native";
 import type { MainTabScreenProps } from "../types/navigation";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AvatarPlaceholder,
@@ -26,6 +26,7 @@ import {
   obtenerMisReservas,
   obtenerReservasRecibidas,
 } from "../services/bookings";
+import { MiCalificacion, obtenerMiCalificacion } from "../services/reviews";
 
 const OPCIONES: {
   icono: "settings" | "help-circle";
@@ -52,6 +53,8 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   // Reservas confirmadas del usuario (null = cargando o no disponible)
   const [totalReservas, setTotalReservas] = useState<number | null>(null);
+  // Calificación promedio (null = cargando o no disponible)
+  const [calificacion, setCalificacion] = useState<MiCalificacion | null>(null);
 
   // El conductor cuenta las reservas que hizo; el propietario, las que recibió.
   // Se recalcula cada vez que se vuelve a esta pestaña (por ejemplo, tras reservar o cancelar).
@@ -69,6 +72,14 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
         .catch(() => {
           // Si falla, se muestra un guion en lugar de un número inventado
           if (activo) setTotalReservas(null);
+        });
+
+      obtenerMiCalificacion(token)
+        .then((dato) => {
+          if (activo) setCalificacion(dato);
+        })
+        .catch(() => {
+          if (activo) setCalificacion(null);
         });
 
       return () => {
@@ -183,6 +194,25 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
             <Text style={styles.estadisticaEtiqueta}>
               {esPropietario ? "Reservas recibidas" : "Reservas"}
             </Text>
+
+            <View style={styles.separadorEstadisticas} />
+
+            {/* Conductor: lo que le dan los propietarios. Propietario: promedio de sus parqueaderos */}
+            {calificacion && calificacion.resenas > 0 ? (
+              <View style={styles.filaCalificacion}>
+                <Text style={styles.estadisticaValor}>
+                  {calificacion.promedio.toFixed(1)}
+                </Text>
+                <Ionicons name="star" size={22} color={colors.text} />
+              </View>
+            ) : (
+              <Text style={styles.estadisticaValor}>-</Text>
+            )}
+            <Text style={styles.estadisticaEtiqueta}>
+              {calificacion && calificacion.resenas === 0
+                ? "Sin calificaciones"
+                : "Calificación"}
+            </Text>
           </View>
         </View>
 
@@ -296,6 +326,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.sm,
+    textAlign: "center",
   },
   ubicacion: {
     fontSize: 10,
@@ -315,6 +346,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text,
     textAlign: "center",
+  },
+  separadorEstadisticas: {
+    width: 40,
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginVertical: spacing.sm,
+  },
+  filaCalificacion: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   fila: {
     flexDirection: "row",

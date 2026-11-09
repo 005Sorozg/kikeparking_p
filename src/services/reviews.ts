@@ -58,6 +58,22 @@ export async function obtenerResenas(parqueaderoId: string): Promise<Resena[]> {
   return datos.map(aResena);
 }
 
+export interface MiCalificacion {
+  // Promedio con un decimal (0 si todavía no tiene reseñas)
+  promedio: number;
+  resenas: number;
+}
+
+// GET /users/me/rating: conductor = lo que le dan los propietarios;
+// propietario = el promedio de las reseñas de todos sus parqueaderos.
+export async function obtenerMiCalificacion(token: string): Promise<MiCalificacion> {
+  const dato = await apiRequest<{ rating: number; reviewCount: number }>("/users/me/rating", {
+    token,
+  });
+
+  return { promedio: dato.rating, resenas: dato.reviewCount };
+}
+
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
