@@ -22,6 +22,7 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { ParkingDetailScreen } from "../screens/ParkingDetailScreen";
 import { BookingScreen } from "../screens/BookingScreen";
 import { MyBookingsScreen } from "../screens/MyBookingsScreen";
+import { PaymentScreen } from "../screens/PaymentScreen";
 import { AddParkingScreen } from "../screens/AddParkingScreen";
 import { EditParkingScreen } from "../screens/EditParkingScreen";
 import { ChatScreen } from "../screens/ChatScreen";
@@ -173,6 +174,11 @@ export function AppNavigator() {
         <Stack.Screen
           name="Booking"
           component={BookingScreen}
+          options={{ ...encabezado, title: "" }}
+        />
+        <Stack.Screen
+          name="Payment"
+          component={PaymentScreen}
           options={{ ...encabezado, title: "" }}
         />
         <Stack.Screen

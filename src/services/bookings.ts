@@ -3,8 +3,14 @@ import { apiRequest } from "./api";
 
 
 export type VehicleKind = "carro" | "moto";
-export type EstadoReserva = "confirmed" | "cancelled";
-export type FaseReserva = "upcoming" | "in_progress" | "completed" | "cancelled";
+export type EstadoReserva = "pending_payment" | "confirmed" | "cancelled";
+export type FaseReserva =
+  | "pending_payment"
+  | "expired"
+  | "upcoming"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
 
 // ---------- Datos reales (API) ----------
 
@@ -18,6 +24,9 @@ interface ReservaApi {
   totalPrice: number;
   status: EstadoReserva;
   phase: FaseReserva;
+  paymentDeadline: string | null;
+  payment: { brand: string; last4: string; paidAt: string } | null;
+  refunded: boolean;
   parkingSpot: {
     id: number;
     title: string;
@@ -45,6 +54,12 @@ export interface Reserva {
   total: number;
   estado: EstadoReserva;
   fase: FaseReserva;
+  // Hasta cuándo puede pagar (solo si está pendiente de pago)
+  limitePago: Date | null;
+  // Con qué tarjeta se pagó (solo marca y últimos 4), o null si no se ha pagado
+  pago: { marca: string; ultimos4: string } | null;
+  // Se canceló después de pagar y se devolvió el dinero
+  reembolsada: boolean;
   parqueadero: {
     id: string;
     titulo: string;
@@ -71,6 +86,9 @@ const aReserva = (r: ReservaApi): Reserva => ({
   total: r.totalPrice,
   estado: r.status,
   fase: r.phase,
+  limitePago: r.paymentDeadline ? new Date(r.paymentDeadline) : null,
+  pago: r.payment ? { marca: r.payment.brand, ultimos4: r.payment.last4 } : null,
+  reembolsada: r.refunded ?? false,
   parqueadero: {
     id: String(r.parkingSpot.id),
     titulo: r.parkingSpot.title,
@@ -146,6 +164,35 @@ export async function cancelarReserva(
   return aReserva(dato);
 }
 
+export interface DatosTarjeta {
+  numero: string;
+  // "MM/AA"
+  vencimiento: string;
+  cvc: string;
+  nombre: string;
+}
+
+// POST /bookings/:id/pay (pasarela simulada). Si el "banco" la rechaza, el backend
+// responde con error y la reserva sigue pendiente para intentar con otra tarjeta.
+export async function pagarReserva(
+  id: number,
+  tarjeta: DatosTarjeta,
+  token: string,
+): Promise<Reserva> {
+  const dato = await apiRequest<ReservaApi>(`/bookings/${id}/pay`, {
+    method: "POST",
+    token,
+    body: {
+      cardNumber: tarjeta.numero,
+      expiry: tarjeta.vencimiento,
+      cvc: tarjeta.cvc,
+      holderName: tarjeta.nombre,
+    },
+  });
+
+  return aReserva(dato);
+}
+
 export interface HorarioOcupado {
   entrada: Date;
   salida: Date;
@@ -200,6 +247,20 @@ export const formatearRango = (entrada: Date, salida: Date) => {
   return `${formatearFecha(entrada)} ${formatearHora(entrada)} - ${formatearFecha(salida)} ${formatearHora(salida)}`;
 };
 
+// Una pendiente cuyo tiempo para pagar ya pasó se muestra como vencida sin recargar.
+export const faseActual = (reserva: Reserva): FaseReserva =>
+  reserva.fase === "pending_payment" &&
+  reserva.limitePago &&
+  reserva.limitePago.getTime() <= Date.now()
+    ? "expired"
+    : reserva.fase;
+
+// Cuenta regresiva para pagar: "9:05"
+export const tiempoParaPagar = (limite: Date) => {
+  const segundos = Math.max(0, Math.floor((limite.getTime() - Date.now()) / 1000));
+  return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, "0")}`;
+};
+
 // Próxima = confirmada y todavía no empieza.
 export const esProxima = (reserva: Reserva) => reserva.fase === "upcoming";
 
@@ -216,7 +277,7 @@ export const tiempoRestante = (salida: Date) => {
 // ---------- Estadísticas (vista del propietario) ----------
 
 export interface Estadisticas {
-  // Reservas confirmadas (las canceladas no cuentan)
+  // Reservas confirmadas, o sea pagadas (las pendientes y canceladas no cuentan)
   total: number;
   proximas: number;
   horas: number;
@@ -233,6 +294,6 @@ export const calcularEstadisticas = (reservas: Reserva[]): Estadisticas => {
     proximas: confirmadas.filter(esProxima).length,
     horas: confirmadas.reduce((suma, r) => suma + r.horas, 0),
     ingresos: confirmadas.reduce((suma, r) => suma + r.total, 0),
-    canceladas: reservas.length - confirmadas.length,
+        canceladas: reservas.filter((r) => r.estado === "cancelled").length,
   };
 };
