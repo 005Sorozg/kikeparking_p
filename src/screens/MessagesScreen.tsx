@@ -19,6 +19,7 @@ import {
   obtenerConversaciones,
 } from "../services/messages";
 import { useAuth } from "../context/AuthContext";
+import { useNoLeidos } from "../context/UnreadContext";
 import { AvatarPlaceholder, Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
@@ -43,6 +44,7 @@ const INTERVALO_MS = 10000;
 export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
   const insets = useSafeAreaInsets();
   const { usuario, token } = useAuth();
+  const { actualizar: actualizarNoLeidos } = useNoLeidos();
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [chats, setChats] = useState<Conversacion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +57,12 @@ export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
     try {
       setChats(await obtenerConversaciones(token, filtro === "archivados"));
       setError(null);
+      // La lista y el número de la pestaña se actualizan juntos
+      actualizarNoLeidos();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudieron cargar los mensajes.");
     }
-  }, [token, filtro]);
+  }, [token, filtro, actualizarNoLeidos]);
 
   // Se carga al entrar (o al cambiar de filtro) y se actualiza cada 10 s mientras se ve.
   useFocusEffect(

@@ -15,6 +15,7 @@ import { HomeScreen } from "../screens/HomeScreen";
 import { MyParkingsScreen } from "../screens/MyParkingsScreen";
 import { MyParkingDetailScreen } from "../screens/MyParkingDetailScreen";
 import { useAuth } from "../context/AuthContext";
+import { useNoLeidos } from "../context/UnreadContext";
 import { FavoritesScreen } from "../screens/FavoritesScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
@@ -49,6 +50,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 function MainTabs() {
   const { usuario } = useAuth();
   const esPropietario = usuario?.role === "propietario";
+  const { noLeidos } = useNoLeidos();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -98,6 +100,9 @@ function MainTabs() {
           tabBarIcon: ({ color }) => (
             <Feather name="message-circle" size={22} color={color} />
           ),
+          // Número rojo con los mensajes sin leer (no se muestra si es 0)
+          tabBarBadge: noLeidos > 0 ? (noLeidos > 99 ? "99+" : noLeidos) : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />
       <Tab.Screen

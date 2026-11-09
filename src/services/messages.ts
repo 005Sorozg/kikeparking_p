@@ -112,6 +112,15 @@ export async function obtenerConversaciones(
   return datos.map(aConversacion);
 }
 
+// GET /conversations/unread-count: total de mensajes sin leer (el número de la pestaña).
+export async function obtenerNoLeidos(token: string): Promise<number> {
+  const dato = await apiRequest<{ count: number }>("/conversations/unread-count", {
+    token,
+  });
+
+  return dato.count;
+}
+
 // GET /conversations/:id/messages: los mensajes del chat.
 // Con despuesDe, solo los que llegaron después de ese id (para revisar si hay nuevos).
 export async function obtenerMensajes(
