@@ -12,22 +12,26 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { AppScreenProps } from "../types/navigation";
 import { formatearPrecio } from "../services/parking";
 import {
+  FaseReserva,
   Reserva,
   cancelarReserva,
   esProxima,
   formatearRango,
   obtenerMisReservas,
   obtenerReservasRecibidas,
+  tiempoRestante,
 } from "../services/bookings";
+import { BookingPhaseTag } from "../components/BookingPhaseTag";
 import { useAuth } from "../context/AuthContext";
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
-type Filtro = "proximas" | "anteriores";
-
-const FILTROS: { id: Filtro; etiqueta: string }[] = [
-  { id: "proximas", etiqueta: "Próximas" },
-  { id: "anteriores", etiqueta: "Anteriores" },
+// Cada filtro muestra las reservas de un estado
+const FILTROS: { id: FaseReserva; etiqueta: string; vacio: string }[] = [
+  { id: "upcoming", etiqueta: "Próximas", vacio: "No tienes reservas próximas." },
+  { id: "in_progress", etiqueta: "En curso", vacio: "No hay reservas en curso ahora." },
+  { id: "completed", etiqueta: "Completadas", vacio: "Todavía no hay reservas completadas." },
+  { id: "cancelled", etiqueta: "Canceladas", vacio: "No hay reservas canceladas." },
 ];
 
 // Reservas: el conductor ve las que hizo y el propietario las que recibió.
@@ -35,7 +39,7 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
   const { usuario, token } = useAuth();
   const esPropietario = usuario?.role === "propietario";
 
-  const [filtro, setFiltro] = useState<Filtro>("proximas");
+  const [filtro, setFiltro] = useState<FaseReserva>("upcoming");
   const [reservas, setReservas] = useState<Reserva[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Reserva que está pidiendo confirmación para cancelarse.
@@ -93,10 +97,10 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
   };
 
   const visibles = (reservas ?? [])
-    .filter((r) => (filtro === "proximas" ? esProxima(r) : !esProxima(r)))
-    // Próximas: la más cercana primero. Anteriores: la más reciente primero.
+    .filter((r) => r.fase === filtro)
+    // Próximas y en curso: la más cercana primero. Las demás: la más reciente primero.
     .sort((a, b) =>
-      filtro === "proximas"
+      filtro === "upcoming" || filtro === "in_progress"
         ? a.entrada.getTime() - b.entrada.getTime()
         : b.entrada.getTime() - a.entrada.getTime(),
     );
@@ -107,16 +111,22 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
         {esPropietario ? "Reservas recibidas" : "Reservas"}
       </Text>
 
-      <View style={styles.chips}>
-        {FILTROS.map((f) => (
-          <Chip
-            key={f.id}
-            label={f.etiqueta}
-            variant="filled"
-            selected={filtro === f.id}
-            onPress={() => setFiltro(f.id)}
-          />
-        ))}
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}
+        >
+          {FILTROS.map((f) => (
+            <Chip
+              key={f.id}
+              label={f.etiqueta}
+              variant="filled"
+              selected={filtro === f.id}
+              onPress={() => setFiltro(f.id)}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       <ScrollView contentContainerStyle={styles.lista}>
@@ -126,7 +136,7 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
 
         {reservas && visibles.length === 0 && (
           <Text style={styles.vacio}>
-            No tienes reservas {filtro === "proximas" ? "próximas" : "anteriores"}.
+            {FILTROS.find((f) => f.id === filtro)?.vacio}
           </Text>
         )}
 
@@ -163,7 +173,12 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
                   </Text>
                 </View>
 
-                {cancelada && <Text style={styles.cancelada}>Cancelada</Text>}
+                <BookingPhaseTag fase={r.fase} />
+                {r.fase === "in_progress" && (
+                  <Text style={styles.restante}>
+                    Termina en {tiempoRestante(r.salida)}
+                  </Text>
+                )}
 
                 {esProxima(r) && confirmando !== r.id && (
                   <Pressable onPress={() => setConfirmando(r.id)}>
@@ -270,11 +285,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: spacing.md,
   },
-  cancelada: {
+    restante: {
     fontSize: 11,
-    fontWeight: "700",
-    color: colors.primary,
-    marginTop: 4,
+    fontWeight: "600",
+    color: "#2E7D32",
+    marginTop: 3,
   },
   accion: {
     fontSize: 12,

@@ -22,7 +22,9 @@ import {
   esProxima,
   formatearRango,
   obtenerReservasRecibidas,
+  tiempoRestante,
 } from "../services/bookings";
+import { BookingPhaseTag } from "../components/BookingPhaseTag";
 import { useAuth } from "../context/AuthContext";
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
@@ -110,8 +112,11 @@ export function MyParkingDetailScreen({
   const proximas = reservas
     .filter(esProxima)
     .sort((a, b) => a.entrada.getTime() - b.entrada.getTime());
+    // Quién está usando el parqueadero ahora mismo
+  const enCurso = reservas.filter((r) => r.fase === "in_progress");
+  // Historial: completadas y canceladas, la más reciente primero
   const anteriores = reservas
-    .filter((r) => !esProxima(r))
+    .filter((r) => r.fase === "completed" || r.fase === "cancelled")
     .sort((a, b) => b.entrada.getTime() - a.entrada.getTime());
 
   const TARJETAS = [
@@ -143,7 +148,7 @@ export function MyParkingDetailScreen({
         </View>
       </View>
 
-            <View style={styles.botonEditar}>
+      <View style={styles.botonEditar}>
         <PrimaryButton
           label="Editar información"
           onPress={() =>
@@ -190,6 +195,14 @@ export function MyParkingDetailScreen({
         ))}
       </View>
 
+      <Text style={styles.seccion}>En este momento</Text>
+      {enCurso.length === 0 && (
+        <Text style={styles.vacio}>Nadie está usando el parqueadero ahora.</Text>
+      )}
+      {enCurso.map((r) => (
+        <FilaReserva key={r.id} reserva={r} />
+      ))}
+
       <Text style={styles.seccion}>Próximas reservas</Text>
       {proximas.length === 0 && (
         <Text style={styles.vacio}>No hay reservas próximas.</Text>
@@ -233,7 +246,10 @@ function FilaReserva({ reserva: r }: { reserva: Reserva }) {
             {r.horas === 1 ? "hora" : "horas"}
           </Text>
         </View>
-        {cancelada && <Text style={styles.cancelada}>Cancelada</Text>}
+        <BookingPhaseTag fase={r.fase} />
+        {r.fase === "in_progress" && (
+          <Text style={styles.restante}>Sale en {tiempoRestante(r.salida)}</Text>
+        )}
       </View>
       <Text style={[styles.valor, cancelada && styles.valorTachado]}>
         {formatearPrecio(r.total)}
@@ -420,10 +436,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  cancelada: {
+  restante: {
     fontSize: 11,
-    fontWeight: "700",
-    color: colors.primary,
+    fontWeight: "600",
+    color: "#2E7D32",
     marginTop: 3,
   },
   valor: {

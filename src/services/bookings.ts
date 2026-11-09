@@ -4,6 +4,7 @@ import { apiRequest } from "./api";
 
 export type VehicleKind = "carro" | "moto";
 export type EstadoReserva = "confirmed" | "cancelled";
+export type FaseReserva = "upcoming" | "in_progress" | "completed" | "cancelled";
 
 // ---------- Datos reales (API) ----------
 
@@ -16,6 +17,7 @@ interface ReservaApi {
   hours: number;
   totalPrice: number;
   status: EstadoReserva;
+  phase: FaseReserva;
   parkingSpot: {
     id: number;
     title: string;
@@ -39,6 +41,7 @@ export interface Reserva {
   horas: number;
   total: number;
   estado: EstadoReserva;
+  fase: FaseReserva;
   parqueadero: {
     id: string;
     titulo: string;
@@ -60,6 +63,7 @@ const aReserva = (r: ReservaApi): Reserva => ({
   horas: r.hours,
   total: r.totalPrice,
   estado: r.status,
+  fase: r.phase,
   parqueadero: {
     id: String(r.parkingSpot.id),
     titulo: r.parkingSpot.title,
@@ -183,9 +187,18 @@ export const formatearRango = (entrada: Date, salida: Date) => {
   return `${formatearFecha(entrada)} ${formatearHora(entrada)} - ${formatearFecha(salida)} ${formatearHora(salida)}`;
 };
 
-// Próxima = confirmada y todavía no termina.
-export const esProxima = (reserva: Reserva) =>
-  reserva.estado === "confirmed" && reserva.salida.getTime() > Date.now();
+// Próxima = confirmada y todavía no empieza.
+export const esProxima = (reserva: Reserva) => reserva.fase === "upcoming";
+
+// Para una reserva en curso: "1 h 20 min" o "35 min" hasta la salida.
+export const tiempoRestante = (salida: Date) => {
+  const minutos = Math.max(0, Math.round((salida.getTime() - Date.now()) / 60000));
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+
+  if (horas === 0) return `${resto} min`;
+  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
+};
 
 // ---------- Estadísticas (vista del propietario) ----------
 
