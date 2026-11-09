@@ -29,7 +29,10 @@ interface ReservaApi {
   driver: {
     id: number;
     name: string;
+    rating: number;
+    reviewCount: number;
   };
+  myReview: { rating: number } | null;
 }
 
 // Así la usan las pantallas.
@@ -52,7 +55,11 @@ export interface Reserva {
   conductor: {
     id: number;
     nombre: string;
+    calificacion: number;
+    resenas: number;
   };
+  // Estrellas que puse yo en esta reserva, o null si todavía no califico
+  miCalificacion: number | null;
 }
 
 const aReserva = (r: ReservaApi): Reserva => ({
@@ -71,7 +78,13 @@ const aReserva = (r: ReservaApi): Reserva => ({
     direccion: r.parkingSpot.address,
         imagen: r.parkingSpot.photoUrl ? { uri: r.parkingSpot.photoUrl } : undefined,
   },
-  conductor: { id: r.driver.id, nombre: r.driver.name },
+  conductor: {
+    id: r.driver.id,
+    nombre: r.driver.name,
+    calificacion: r.driver.rating,
+    resenas: r.driver.reviewCount,
+  },
+  miCalificacion: r.myReview?.rating ?? null,
 });
 
 export interface DatosReserva {

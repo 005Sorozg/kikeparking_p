@@ -22,6 +22,8 @@ import {
   tiempoRestante,
 } from "../services/bookings";
 import { BookingPhaseTag } from "../components/BookingPhaseTag";
+import { ReviewModal } from "../components/ReviewModal";
+import { Stars } from "../components/Stars";
 import { useAuth } from "../context/AuthContext";
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
@@ -38,13 +40,14 @@ const FILTROS: { id: FaseReserva; etiqueta: string; vacio: string }[] = [
 export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
   const { usuario, token } = useAuth();
   const esPropietario = usuario?.role === "propietario";
-
   const [filtro, setFiltro] = useState<FaseReserva>("upcoming");
   const [reservas, setReservas] = useState<Reserva[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Reserva que está pidiendo confirmación para cancelarse.
   const [confirmando, setConfirmando] = useState<number | null>(null);
   const [cancelando, setCancelando] = useState<number | null>(null);
+  // Reserva que se está calificando (abre la ventana de calificar)
+  const [calificando, setCalificando] = useState<Reserva | null>(null);
 
   // Se recarga cada vez que la pantalla se vuelve a mostrar.
   useFocusEffect(
@@ -155,7 +158,11 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
                 </Text>
                 <Text style={styles.detalle}>
                   {esPropietario
-                    ? `Reservó ${r.conductor.nombre}`
+                    ? `Reservó ${r.conductor.nombre}${
+                        r.conductor.resenas > 0
+                          ? ` · ★ ${r.conductor.calificacion.toFixed(1)}`
+                          : ""
+                      }`
                     : `${r.parqueadero.barrio} · ${r.parqueadero.direccion}`}
                 </Text>
                 <Text style={styles.detalle}>
@@ -178,6 +185,21 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
                   <Text style={styles.restante}>
                     Termina en {tiempoRestante(r.salida)}
                   </Text>
+                )}
+
+                {/* Completada: calificar una vez, o ver cuántas estrellas puse */}
+                {r.fase === "completed" && r.miCalificacion !== null && (
+                  <View style={styles.calificada}>
+                    <Text style={styles.detalle}>Calificaste</Text>
+                    <Stars value={r.miCalificacion} size={11} />
+                  </View>
+                )}
+                {r.fase === "completed" && r.miCalificacion === null && (
+                  <Pressable onPress={() => setCalificando(r)}>
+                    <Text style={styles.accion}>
+                      {esPropietario ? "Calificar conductor" : "Calificar"}
+                    </Text>
+                  </Pressable>
                 )}
 
                 {esProxima(r) && confirmando !== r.id && (
@@ -210,6 +232,24 @@ export function MyBookingsScreen(_: AppScreenProps<"MyBookings">) {
           );
         })}
       </ScrollView>
+      <ReviewModal
+        reservaId={calificando?.id ?? null}
+        titulo={
+          esPropietario
+            ? `¿Cómo fue ${calificando?.conductor.nombre ?? ""} como conductor?`
+            : `¿Qué tal ${calificando?.parqueadero.titulo ?? "el parqueadero"}?`
+        }
+        onClose={() => setCalificando(null)}
+        onRated={(id, estrellas) => {
+          // Se marca como calificada sin volver a pedir la lista
+          setReservas((actuales) =>
+            (actuales ?? []).map((r) =>
+              r.id === id ? { ...r, miCalificacion: estrellas } : r,
+            ),
+          );
+          setCalificando(null);
+        }}
+      />
     </View>
   );
 }
@@ -307,5 +347,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     gap: spacing.md,
+  },
+  calificada: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: spacing.sm,
   },
 });

@@ -17,6 +17,8 @@ import {
 } from "../services/parking";
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { ReviewItem } from "../components/ReviewItem";
+import { Resena, obtenerResenas } from "../services/reviews";
 import { useFavoritos } from "../context/FavoritesContext";
 import { abrirConversacion } from "../services/messages";
 import { colors, radius, spacing } from "../styles/theme";
@@ -33,9 +35,17 @@ export function ParkingDetailScreen({
   const [abriendoChat, setAbriendoChat] = useState(false);
   const [errorChat, setErrorChat] = useState<string | null>(null);
   const { esFavorito, alternarFavorito } = useFavoritos();
+  // Reseñas de los conductores (se cargan aparte: si fallan, el detalle igual se muestra)
+  const [resenas, setResenas] = useState<Resena[]>([]);
 
   useEffect(() => {
     let activo = true;
+
+    obtenerResenas(route.params.parkingSpotId)
+      .then((lista) => {
+        if (activo) setResenas(lista);
+      })
+      .catch(() => {});
 
     obtenerParqueadero(route.params.parkingSpotId)
       .then((dato) => {
@@ -139,7 +149,7 @@ export function ParkingDetailScreen({
         <View style={styles.calificacion}>
           <Ionicons name="star" size={14} color={colors.black} />
           <Text style={styles.calificacionTexto}>
-            {spot.calificacion > 0 ? spot.calificacion.toFixed(1) : "Nuevo"}
+            {spot.resenas > 0 ? spot.calificacion.toFixed(1) : "Nuevo"}
           </Text>
         </View>
       </View>
@@ -179,6 +189,13 @@ export function ParkingDetailScreen({
         )}
         {errorChat && <Text style={styles.error}>{errorChat}</Text>}
       </View>
+      {/* Lo que dijeron los conductores que ya lo usaron */}
+      <Text style={styles.seccionResenas}>
+        {resenas.length > 0 ? "Reseñas" : "Aún no tiene reseñas"}
+      </Text>
+      {resenas.map((r) => (
+        <ReviewItem key={r.id} resena={r} />
+      ))}
     </ScrollView>
   );
 }
@@ -308,5 +325,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: spacing.sm,
     textAlign: "center",
+  },
+  seccionResenas: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    marginTop: spacing.xl,
   },
 });
