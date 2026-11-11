@@ -3,93 +3,93 @@ import { apiRequest, apiUploadFile } from "./api";
 
 // Datos ficticios: más adelante se reemplazan por llamadas reales a la API.
 
-export interface ParkingSpot {
+export interface MockParkingSpot {
   id: string;
-  titulo: string;
-  barrio: string;
-  ciudad: string;
-  direccion: string;
-  distanciaKm: number;
-  vehiculos: number;
-  etiquetas: string[];
-  precioDia: number;
-  disponible: boolean;
-  calificacion: number;
-  favorito: boolean;
+  title: string;
+  neighborhood: string;
+  city: string;
+  address: string;
+  distanceKm: number;
+  vehicles: number;
+  labels: string[];
+  pricePerDay: number;
+  available: boolean;
+  rating: number;
+  favorite: boolean;
   // Foto local por ahora; con el back será { uri: "https://..." }.
-  imagen?: ImageSourcePropType;
+  image?: ImageSourcePropType;
 }
 
-export const FILTROS_RAPIDOS = [
+export const QUICK_FILTERS = [
   "Techado",
   "Vigilancia 24/7",
   "Acceso rápido",
   "Cargador eléctrico",
 ];
 
-export const formatearPrecio = (valor: number) =>
-  `$${valor.toLocaleString("en-US")}`;
+export const formatPrice = (value: number) =>
+  `$${value.toLocaleString("en-US")}`;
 
-export const parkingSpots: ParkingSpot[] = [
+export const mockParkingSpots: MockParkingSpot[] = [
   {
     id: "1",
-    imagen: require("../../assets/images/garaje-techado.jpeg"),
-    titulo: "Garaje techado con vigilancia",
-    barrio: "Laureles",
-    ciudad: "Medellín",
-    direccion: "Cra. 76 #44-20",
-    distanciaKm: 1.2,
-    vehiculos: 1,
-    etiquetas: ["Techado", "Vigilancia 24/7"],
-    precioDia: 50000,
-    disponible: true,
-    calificacion: 4.9,
-    favorito: true,
+    image: require("../../assets/images/garaje-techado.jpeg"),
+    title: "Garaje techado con vigilancia",
+    neighborhood: "Laureles",
+    city: "Medellín",
+    address: "Cra. 76 #44-20",
+    distanceKm: 1.2,
+    vehicles: 1,
+    labels: ["Techado", "Vigilancia 24/7"],
+    pricePerDay: 50000,
+    available: true,
+    rating: 4.9,
+    favorite: true,
   },
   {
     id: "2",
-    imagen: require("../../assets/images/celda-unidad.jpg"),
-    titulo: "Celda en unidad cerrada",
-    barrio: "El Poblado",
-    ciudad: "Medellín",
-    direccion: "Cl. 9 #37-15",
-    distanciaKm: 2.4,
-    vehiculos: 1,
-    etiquetas: ["Techado", "Acceso rápido"],
-    precioDia: 65000,
-    disponible: true,
-    calificacion: 4.6,
-    favorito: false,
+    image: require("../../assets/images/celda-unidad.jpg"),
+    title: "Celda en unidad cerrada",
+    neighborhood: "El Poblado",
+    city: "Medellín",
+    address: "Cl. 9 #37-15",
+    distanceKm: 2.4,
+    vehicles: 1,
+    labels: ["Techado", "Acceso rápido"],
+    pricePerDay: 65000,
+    available: true,
+    rating: 4.6,
+    favorite: false,
   },
   {
     id: "3",
-    imagen: require("../../assets/images/parqueadero-descubierto.jpg"),
-    titulo: "Parqueadero descubierto",
-    barrio: "Belén",
-    ciudad: "Medellín",
-    direccion: "Cra. 70 #30-08",
-    distanciaKm: 3.1,
-    vehiculos: 2,
-    etiquetas: ["Acceso rápido"],
-    precioDia: 35000,
-    disponible: false,
-    calificacion: 4.2,
-    favorito: false,
+    image: require("../../assets/images/parqueadero-descubierto.jpg"),
+    title: "Parqueadero descubierto",
+    neighborhood: "Belén",
+    city: "Medellín",
+    address: "Cra. 70 #30-08",
+    distanceKm: 3.1,
+    vehicles: 2,
+    labels: ["Acceso rápido"],
+    pricePerDay: 35000,
+    available: false,
+    rating: 4.2,
+    favorite: false,
   },
   {
     id: "4",
-    imagen: require("../../assets/images/garaje-familiar.jpeg"),
-    titulo: "Garaje familiar",
-    barrio: "Envigado",
-    ciudad: "Antioquia",
-    direccion: "Cl. 38 Sur #43-12",
-    distanciaKm: 5.8,
-    vehiculos: 1,
-    etiquetas: ["Vigilancia 24/7", "Cargador eléctrico"],
-    precioDia: 48000,
-    disponible: true,
-    calificacion: 4.8,
-    favorito: false,
+    image: require("../../assets/images/garaje-familiar.jpeg"),
+    title: "Garaje familiar",
+    neighborhood: "Envigado",
+    city: "Antioquia",
+    address: "Cl. 38 Sur #43-12",
+    distanceKm: 5.8,
+    vehicles: 1,
+    labels: ["Vigilancia 24/7", "Cargador eléctrico"],
+    pricePerDay: 48000,
+    available: true,
+    rating: 4.8,
+    favorite: false,
   },
   
 ];
@@ -98,43 +98,43 @@ export const parkingSpots: ParkingSpot[] = [
 // ---------- Datos reales (API) ----------
 
 // Foto de un parqueadero tal como la devuelve el backend.
-export interface FotoParqueadero {
+export interface ParkingPhoto {
   id: number;
   url: string;
 }
 
 // Características que marca el propietario (también sirven de filtro en Explorar)
-export interface Caracteristicas {
-  aceptaCarros: boolean;
-  aceptaMotos: boolean;
-  techado: boolean;
-  vigilancia: boolean;
-  camaras: boolean;
-  cargaElectrica: boolean;
+export interface Features {
+  acceptsCars: boolean;
+  acceptsMotorcycles: boolean;
+  covered: boolean;
+  security: boolean;
+  cameras: boolean;
+  evCharging: boolean;
 }
 
 // Las que trae un parqueadero nuevo si el propietario no cambia nada
-export const CARACTERISTICAS_INICIALES: Caracteristicas = {
-  aceptaCarros: true,
-  aceptaMotos: true,
-  techado: false,
-  vigilancia: false,
-  camaras: false,
-  cargaElectrica: false,
+export const INITIAL_FEATURES: Features = {
+  acceptsCars: true,
+  acceptsMotorcycles: true,
+  covered: false,
+  security: false,
+  cameras: false,
+  evCharging: false,
 };
 
 // Así se llaman en el backend
-const aCaracteristicasApi = (c: Caracteristicas) => ({
-  acceptsCars: c.aceptaCarros,
-  acceptsMotorcycles: c.aceptaMotos,
-  covered: c.techado,
-  hasSecurity: c.vigilancia,
-  hasCameras: c.camaras,
-  hasEvCharging: c.cargaElectrica,
+const toFeaturesApi = (c: Features) => ({
+  acceptsCars: c.acceptsCars,
+  acceptsMotorcycles: c.acceptsMotorcycles,
+  covered: c.covered,
+  hasSecurity: c.security,
+  hasCameras: c.cameras,
+  hasEvCharging: c.evCharging,
 });
 
 // Así responde el backend (GET /parking-spots).
-export interface ParqueaderoApi {
+export interface ParkingSpotApi {
   id: number;
   title: string;
   neighborhood: string;
@@ -144,7 +144,7 @@ export interface ParqueaderoApi {
   rating: number;
   reviewCount: number;
   ownerId: number;
-  photos: FotoParqueadero[];
+  photos: ParkingPhoto[];
   acceptsCars: boolean;
   acceptsMotorcycles: boolean;
   covered: boolean;
@@ -158,229 +158,229 @@ export interface ParqueaderoApi {
 }
 
 // Punto en el mapa
-export interface Ubicacion {
+export interface Coordinates {
   lat: number;
   lng: number;
 }
 
 // Así los usan las pantallas.
-export interface Parqueadero {
+export interface ParkingSpot {
   id: string;
-  titulo: string;
-  barrio: string;
-  direccion: string;
-  precioHora: number;
-  disponible: boolean;
-  calificacion: number;
-  resenas: number;
-  caracteristicas: Caracteristicas;
+  title: string;
+  neighborhood: string;
+  address: string;
+  pricePerHour: number;
+  available: boolean;
+  rating: number;
+  reviewCount: number;
+  features: Features;
   // null si el propietario todavía no la marcó en el mapa
-  ubicacion: Ubicacion | null;
+  location: Coordinates | null;
   // Solo cuando viene de "cercanos": a cuántos km está
-  distanciaKm?: number;
-  propietarioId: number;
+  distanceKm?: number;
+  ownerId: number;
   // Todas las fotos del parqueadero (máximo 5)
-  fotos: FotoParqueadero[];
+  photos: ParkingPhoto[];
   // Portada (la primera foto). Si no hay fotos queda vacía y se ve el ícono de imagen.
-  imagen?: ImageSourcePropType;
+  image?: ImageSourcePropType;
 }
 
 // Cantidad máxima de fotos por parqueadero (la misma regla del backend)
-export const MAX_FOTOS_PARQUEADERO = 5;
+export const MAX_PARKING_PHOTOS = 5;
 
-export const aParqueadero = (p: ParqueaderoApi): Parqueadero => ({
+export const toParkingSpot = (p: ParkingSpotApi): ParkingSpot => ({
   id: String(p.id),
-  titulo: p.title,
-  barrio: p.neighborhood,
-  direccion: p.address,
-  precioHora: p.pricePerHour,
-  disponible: p.available,
-  calificacion: p.rating,
-  resenas: p.reviewCount ?? 0,
-  caracteristicas: {
-    aceptaCarros: p.acceptsCars ?? true,
-    aceptaMotos: p.acceptsMotorcycles ?? true,
-    techado: p.covered ?? false,
-    vigilancia: p.hasSecurity ?? false,
-    camaras: p.hasCameras ?? false,
-    cargaElectrica: p.hasEvCharging ?? false,
+  title: p.title,
+  neighborhood: p.neighborhood,
+  address: p.address,
+  pricePerHour: p.pricePerHour,
+  available: p.available,
+  rating: p.rating,
+  reviewCount: p.reviewCount ?? 0,
+  features: {
+    acceptsCars: p.acceptsCars ?? true,
+    acceptsMotorcycles: p.acceptsMotorcycles ?? true,
+    covered: p.covered ?? false,
+    security: p.hasSecurity ?? false,
+    cameras: p.hasCameras ?? false,
+    evCharging: p.hasEvCharging ?? false,
   },
-  ubicacion:
+  location:
     p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined
       ? { lat: p.latitude, lng: p.longitude }
       : null,
-  distanciaKm: p.distanceKm,
-  propietarioId: p.ownerId,
-  fotos: p.photos ?? [],
-  imagen: p.photos?.[0] ? { uri: p.photos[0].url } : undefined,
+  distanceKm: p.distanceKm,
+  ownerId: p.ownerId,
+  photos: p.photos ?? [],
+  image: p.photos?.[0] ? { uri: p.photos[0].url } : undefined,
 });
 
-export interface FiltrosParqueaderos {
-  busqueda?: string;
-  soloDisponibles?: boolean;
-  orden?: "rating" | "price";
+export interface ParkingFilters {
+  search?: string;
+  onlyAvailable?: boolean;
+  sort?: "rating" | "price";
   // Solo los que acepten este vehículo
-  vehiculo?: "carro" | "moto";
+  vehicle?: "carro" | "moto";
   // En true: solo los que tengan esa característica
-  techado?: boolean;
-  vigilancia?: boolean;
-  camaras?: boolean;
-  cargaElectrica?: boolean;
+  covered?: boolean;
+  security?: boolean;
+  cameras?: boolean;
+  evCharging?: boolean;
   // Rectángulo del mapa: solo los que se ven en pantalla
   area?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
 }
 
 // GET /parking-spots, con los filtros que el backend ya soporta.
-export async function obtenerParqueaderos(
-  filtros: FiltrosParqueaderos = {},
-): Promise<Parqueadero[]> {
+export async function getParkingSpots(
+  filters: ParkingFilters = {},
+): Promise<ParkingSpot[]> {
   const params = new URLSearchParams();
 
-  if (filtros.busqueda?.trim()) params.set("search", filtros.busqueda.trim());
-  if (filtros.soloDisponibles) params.set("onlyAvailable", "true");
-  if (filtros.orden) params.set("sort", filtros.orden);
-  if (filtros.vehiculo) params.set("vehicle", filtros.vehiculo);
-  if (filtros.techado) params.set("covered", "true");
-  if (filtros.vigilancia) params.set("hasSecurity", "true");
-  if (filtros.camaras) params.set("hasCameras", "true");
-  if (filtros.cargaElectrica) params.set("hasEvCharging", "true");
-  if (filtros.area) {
-    params.set("minLat", String(filtros.area.minLat));
-    params.set("maxLat", String(filtros.area.maxLat));
-    params.set("minLng", String(filtros.area.minLng));
-    params.set("maxLng", String(filtros.area.maxLng));
+  if (filters.search?.trim()) params.set("search", filters.search.trim());
+  if (filters.onlyAvailable) params.set("onlyAvailable", "true");
+  if (filters.sort) params.set("sort", filters.sort);
+  if (filters.vehicle) params.set("vehicle", filters.vehicle);
+  if (filters.covered) params.set("covered", "true");
+  if (filters.security) params.set("hasSecurity", "true");
+  if (filters.cameras) params.set("hasCameras", "true");
+  if (filters.evCharging) params.set("hasEvCharging", "true");
+  if (filters.area) {
+    params.set("minLat", String(filters.area.minLat));
+    params.set("maxLat", String(filters.area.maxLat));
+    params.set("minLng", String(filters.area.minLng));
+    params.set("maxLng", String(filters.area.maxLng));
   }
 
-  const consulta = params.toString();
-  const datos = await apiRequest<ParqueaderoApi[]>(
-    `/parking-spots${consulta ? `?${consulta}` : ""}`,
+  const query = params.toString();
+  const data = await apiRequest<ParkingSpotApi[]>(
+    `/parking-spots${query ? `?${query}` : ""}`,
   );
 
-  return datos.map(aParqueadero);
+  return data.map(toParkingSpot);
 }
 
 // GET /parking-spots/nearby: los más cercanos a un punto, del más cerca al más lejos.
-export async function obtenerCercanos(
-  ubicacion: Ubicacion,
-  limite = 10,
-): Promise<Parqueadero[]> {
-  const datos = await apiRequest<ParqueaderoApi[]>(
-    `/parking-spots/nearby?lat=${ubicacion.lat}&lng=${ubicacion.lng}&limit=${limite}`,
+export async function getNearby(
+  location: Coordinates,
+  limit = 10,
+): Promise<ParkingSpot[]> {
+  const data = await apiRequest<ParkingSpotApi[]>(
+    `/parking-spots/nearby?lat=${location.lat}&lng=${location.lng}&limit=${limit}`,
   );
 
-  return datos.map(aParqueadero);
+  return data.map(toParkingSpot);
 }
 
 // GET /parking-spots/:id
-export async function obtenerParqueadero(id: string): Promise<Parqueadero> {
-  const dato = await apiRequest<ParqueaderoApi>(`/parking-spots/${id}`);
+export async function getParkingSpot(id: string): Promise<ParkingSpot> {
+  const result = await apiRequest<ParkingSpotApi>(`/parking-spots/${id}`);
 
-  return aParqueadero(dato);
+  return toParkingSpot(result);
 }
 
 // GET /parking-spots/mine (propietario): sus parqueaderos publicados.
-export async function obtenerMisParqueaderos(
+export async function getMyParkingSpots(
   token: string,
-): Promise<Parqueadero[]> {
-  const datos = await apiRequest<ParqueaderoApi[]>("/parking-spots/mine", {
+): Promise<ParkingSpot[]> {
+  const data = await apiRequest<ParkingSpotApi[]>("/parking-spots/mine", {
     token,
   });
 
-  return datos.map(aParqueadero);
+  return data.map(toParkingSpot);
 }
 
-export interface DatosParqueadero {
-  titulo: string;
-  barrio: string;
-  direccion: string;
-  precioHora: number;
-  caracteristicas?: Caracteristicas;
-  ubicacion?: Ubicacion | null;
+export interface ParkingSpotInput {
+  title: string;
+  neighborhood: string;
+  address: string;
+  pricePerHour: number;
+  features?: Features;
+  location?: Coordinates | null;
 }
 
 // POST /parking-spots (requiere sesión iniciada: el dueño sale del token).
-export async function publicarParqueadero(
-  datos: DatosParqueadero,
+export async function publishParkingSpot(
+  data: ParkingSpotInput,
   token: string,
-): Promise<Parqueadero> {
-  const dato = await apiRequest<ParqueaderoApi>("/parking-spots", {
+): Promise<ParkingSpot> {
+  const result = await apiRequest<ParkingSpotApi>("/parking-spots", {
     method: "POST",
     token,
     body: {
-      title: datos.titulo,
-      neighborhood: datos.barrio,
-      address: datos.direccion,
-      pricePerHour: datos.precioHora,
-      ...(datos.caracteristicas && aCaracteristicasApi(datos.caracteristicas)),
-      ...(datos.ubicacion && { latitude: datos.ubicacion.lat, longitude: datos.ubicacion.lng }),
+      title: data.title,
+      neighborhood: data.neighborhood,
+      address: data.address,
+      pricePerHour: data.pricePerHour,
+      ...(data.features && toFeaturesApi(data.features)),
+      ...(data.location && { latitude: data.location.lat, longitude: data.location.lng }),
     },
   });
 
-  return aParqueadero(dato);
+  return toParkingSpot(result);
 }
 
 // PATCH /parking-spots/:id/availability (solo el dueño).
 // disponible = false lo pausa: no recibe reservas nuevas, las que tenía se mantienen.
-export async function cambiarDisponibilidad(
+export async function changeAvailability(
   id: string,
-  disponible: boolean,
+  available: boolean,
   token: string,
-): Promise<Parqueadero> {
-  const dato = await apiRequest<ParqueaderoApi>(
+): Promise<ParkingSpot> {
+  const result = await apiRequest<ParkingSpotApi>(
     `/parking-spots/${id}/availability`,
-    { method: "PATCH", token, body: { available: disponible } },
+    { method: "PATCH", token, body: { available } },
   );
 
-  return aParqueadero(dato);
+  return toParkingSpot(result);
 }
 
-export async function editarParqueadero(
+export async function editParkingSpot(
   id: string,
-  datos: Partial<DatosParqueadero>,
+  data: Partial<ParkingSpotInput>,
   token: string,
-): Promise<Parqueadero> {
-  const dato = await apiRequest<ParqueaderoApi>(`/parking-spots/${id}`, {
+): Promise<ParkingSpot> {
+  const result = await apiRequest<ParkingSpotApi>(`/parking-spots/${id}`, {
     method: "PATCH",
     token,
     body: {
-      ...(datos.titulo !== undefined && { title: datos.titulo }),
-      ...(datos.barrio !== undefined && { neighborhood: datos.barrio }),
-      ...(datos.direccion !== undefined && { address: datos.direccion }),
-      ...(datos.precioHora !== undefined && { pricePerHour: datos.precioHora }),
-      ...(datos.caracteristicas && aCaracteristicasApi(datos.caracteristicas)),
-      ...(datos.ubicacion && { latitude: datos.ubicacion.lat, longitude: datos.ubicacion.lng }),
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.neighborhood !== undefined && { neighborhood: data.neighborhood }),
+      ...(data.address !== undefined && { address: data.address }),
+      ...(data.pricePerHour !== undefined && { pricePerHour: data.pricePerHour }),
+      ...(data.features && toFeaturesApi(data.features)),
+      ...(data.location && { latitude: data.location.lat, longitude: data.location.lng }),
     },
   });
 
-  return aParqueadero(dato);
+  return toParkingSpot(result);
 }
 
 // POST /parking-spots/:id/photos (solo el dueño): sube UNA foto y devuelve
 // el parqueadero con todas sus fotos.
-export async function subirFotoParqueadero(
+export async function uploadParkingPhoto(
   id: string,
   uri: string,
-  tipo: string | undefined,
+  type: string | undefined,
   token: string,
-): Promise<Parqueadero> {
-  const dato = await apiUploadFile<ParqueaderoApi>(
+): Promise<ParkingSpot> {
+  const result = await apiUploadFile<ParkingSpotApi>(
     `/parking-spots/${id}/photos`,
-    { token, campo: "photo", uri, tipo },
+    { token, field: "photo", uri, type },
   );
 
-  return aParqueadero(dato);
+  return toParkingSpot(result);
 }
 
 // DELETE /parking-spots/:id/photos/:photoId (solo el dueño): borra una foto.
-export async function borrarFotoParqueadero(
+export async function deleteParkingPhoto(
   id: string,
-  fotoId: number,
+  photoId: number,
   token: string,
-): Promise<Parqueadero> {
-  const dato = await apiRequest<ParqueaderoApi>(
-    `/parking-spots/${id}/photos/${fotoId}`,
+): Promise<ParkingSpot> {
+  const result = await apiRequest<ParkingSpotApi>(
+    `/parking-spots/${id}/photos/${photoId}`,
     { method: "DELETE", token },
   );
 
-  return aParqueadero(dato);
+  return toParkingSpot(result);
 }

@@ -8,10 +8,10 @@ export const API_BASE_URL =
 
 // Qué hacer cuando el backend rechaza el token (vencido o inválido).
 // Lo registra AuthContext para cerrar la sesión.
-let alRechazarToken: (() => void) | null = null;
+let onTokenRejected: (() => void) | null = null;
 
-export function registrarAlRechazarToken(funcion: (() => void) | null) {
-  alRechazarToken = funcion;
+export function registerOnTokenRejected(fn: (() => void) | null) {
+  onTokenRejected = fn;
 }
 
 // Error con el mensaje que explica el backend (ej: "Correo o contraseña incorrectos").
@@ -32,15 +32,15 @@ interface RequestOptions {
 }
 
 // Lee la respuesta del backend y lanza ApiError si algo salió mal.
-async function leerRespuesta<T>(
+async function readResponse<T>(
   response: Response,
-  conToken: boolean,
+  withToken: boolean,
 ): Promise<T> {
   const data = await response.json().catch(() => null);
 
   // 401 en una petición con token = la sesión ya no sirve (ej: el token venció)
-  if (response.status === 401 && conToken) {
-    alRechazarToken?.();
+  if (response.status === 401 && withToken) {
+    onTokenRejected?.();
   }
 
   if (!response.ok) {
@@ -77,17 +77,17 @@ export async function apiRequest<T>(
     throw new ApiError("No se pudo conectar con el servidor.", 0);
   }
 
-  return leerRespuesta<T>(response, Boolean(options.token));
+  return readResponse<T>(response, Boolean(options.token));
 }
 
 interface UploadOptions {
   token: string;
   // Nombre del campo que espera el backend ("avatar" o "photo")
-  campo: string;
+  field: string;
   // Ruta local de la imagen que dejó el selector de la galería
   uri: string;
-  tipo?: string;
-  nombre?: string;
+  type?: string;
+  name?: string;
 }
 
 // Sube una imagen como formulario con archivo (multipart/form-data).
@@ -100,10 +100,10 @@ export function apiUploadFile<T>(
   const formData = new FormData();
 
   // En React Native, un archivo se adjunta como un objeto con uri, name y type
-  formData.append(options.campo, {
+  formData.append(options.field, {
     uri: options.uri,
-    name: options.nombre ?? "foto.jpg",
-    type: options.tipo ?? "image/jpeg",
+    name: options.name ?? "foto.jpg",
+    type: options.type ?? "image/jpeg",
   } as unknown as Blob);
 
   return new Promise<T>((resolve, reject) => {
@@ -126,7 +126,7 @@ export function apiUploadFile<T>(
 
       // 401 = la sesión ya no sirve (ej: el token venció)
       if (xhr.status === 401) {
-        alRechazarToken?.();
+        onTokenRejected?.();
       }
 
       if (xhr.status >= 200 && xhr.status < 300) {

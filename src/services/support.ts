@@ -1,6 +1,6 @@
 import { apiRequest } from "./api";
 
-export interface SolicitudAyuda {
+export interface SupportRequest {
   id: number;
   subject: string;
   message: string;
@@ -8,14 +8,14 @@ export interface SolicitudAyuda {
 }
 
 // POST /support-requests: envía un mensaje al equipo de soporte (cualquier rol).
-export function enviarSolicitudAyuda(
-  asunto: string,
-  mensaje: string,
+export function sendSupportRequest(
+  subject: string,
+  message: string,
   token: string,
-): Promise<SolicitudAyuda> {
-  return apiRequest<SolicitudAyuda>("/support-requests", {
+): Promise<SupportRequest> {
+  return apiRequest<SupportRequest>("/support-requests", {
     method: "POST",
-    body: { subject: asunto, message: mensaje },
+    body: { subject, message },
     token,
   });
 }

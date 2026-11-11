@@ -15,14 +15,14 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { AppScreenProps } from "../types/navigation";
 import {
-  CARACTERISTICAS_INICIALES,
-  FotoParqueadero,
-  MAX_FOTOS_PARQUEADERO,
-  Ubicacion,
-  borrarFotoParqueadero,
-  editarParqueadero,
-  obtenerParqueadero,
-  subirFotoParqueadero,
+  INITIAL_FEATURES,
+  ParkingPhoto,
+  MAX_PARKING_PHOTOS,
+  Coordinates,
+  deleteParkingPhoto,
+  editParkingSpot,
+  getParkingSpot,
+  uploadParkingPhoto,
 } from "../services/parking";
 import { useAuth } from "../context/AuthContext";
 import { Field, PrimaryButton } from "../components/ui";
@@ -38,89 +38,89 @@ export function EditParkingScreen({
 }: AppScreenProps<"EditParking">) {
   const { token } = useAuth();
   const { parkingSpotId } = route.params;
-  const [titulo, setTitulo] = useState("");
-  const [barrio, setBarrio] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [precioHora, setPrecioHora] = useState("");
-  const [fotos, setFotos] = useState<FotoParqueadero[]>([]);
-  const [caracteristicas, setCaracteristicas] = useState(CARACTERISTICAS_INICIALES);
-  const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null);
+  const [title, setTitle] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [address, setAddress] = useState("");
+  const [pricePerHour, setPricePerHour] = useState("");
+  const [photos, setPhotos] = useState<ParkingPhoto[]>([]);
+  const [features, setFeatures] = useState(INITIAL_FEATURES);
+  const [location, setLocation] = useState<Coordinates | null>(null);
   // Texto de avance mientras se sube o borra una foto (null = nada en curso)
-  const [progreso, setProgreso] = useState<string | null>(null);
-  const [cargandoDatos, setCargandoDatos] = useState(true);
-  const [guardando, setGuardando] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ocupado = progreso !== null;
+  const busy = progress !== null;
 
   // Carga los datos actuales para rellenar el formulario
   useEffect(() => {
-    let activo = true;
+    let active = true;
 
-    obtenerParqueadero(parkingSpotId)
+    getParkingSpot(parkingSpotId)
       .then((spot) => {
-        if (!activo) return;
-        setTitulo(spot.titulo);
-        setBarrio(spot.barrio);
-        setDireccion(spot.direccion);
-        setPrecioHora(String(spot.precioHora));
-        setFotos(spot.fotos);
-        setCaracteristicas(spot.caracteristicas);
-        setUbicacion(spot.ubicacion);
+        if (!active) return;
+        setTitle(spot.title);
+        setNeighborhood(spot.neighborhood);
+        setAddress(spot.address);
+        setPricePerHour(String(spot.pricePerHour));
+        setPhotos(spot.photos);
+        setFeatures(spot.features);
+        setLocation(spot.location);
       })
       .catch((e) => {
-        if (activo) {
+        if (active) {
           setError(
             e instanceof Error ? e.message : "No se pudo cargar el parqueadero.",
           );
         }
       })
       .finally(() => {
-        if (activo) setCargandoDatos(false);
+        if (active) setLoadingData(false);
       });
 
     return () => {
-      activo = false;
+      active = false;
     };
   }, [parkingSpotId]);
 
   // Abre la galería (se pueden elegir varias) y sube las fotos una por una
-  const agregarFotos = async () => {
+  const addPhotos = async () => {
     if (!token) return;
 
-    const disponibles = MAX_FOTOS_PARQUEADERO - fotos.length;
+    const availableSpots = MAX_PARKING_PHOTOS - photos.length;
 
-    if (disponibles <= 0) {
+    if (availableSpots <= 0) {
       Alert.alert(
         "Límite de fotos",
-        `Un parqueadero puede tener máximo ${MAX_FOTOS_PARQUEADERO} fotos.`,
+        `Un parqueadero puede tener máximo ${MAX_PARKING_PHOTOS} fotos.`,
       );
       return;
     }
 
-    const resultado = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
-      selectionLimit: disponibles,
+      selectionLimit: availableSpots,
       quality: 0.7,
     });
 
-    if (resultado.canceled) return;
+    if (result.canceled) return;
 
-    const elegidas = resultado.assets.slice(0, disponibles);
+    const picked = result.assets.slice(0, availableSpots);
 
     try {
-      for (let i = 0; i < elegidas.length; i++) {
-        setProgreso(`Subiendo foto ${i + 1} de ${elegidas.length}...`);
+      for (let i = 0; i < picked.length; i++) {
+        setProgress(`Subiendo foto ${i + 1} de ${picked.length}...`);
 
-        const actualizado = await subirFotoParqueadero(
+        const updated = await uploadParkingPhoto(
           parkingSpotId,
-          elegidas[i].uri,
-          elegidas[i].mimeType,
+          picked[i].uri,
+          picked[i].mimeType,
           token,
         );
 
-        setFotos(actualizado.fotos);
+        setPhotos(updated.photos);
       }
     } catch (e) {
       Alert.alert(
@@ -128,60 +128,60 @@ export function EditParkingScreen({
         e instanceof Error ? e.message : "Inténtalo de nuevo.",
       );
     } finally {
-      setProgreso(null);
+      setProgress(null);
     }
   };
 
-  const borrarFoto = async (foto: FotoParqueadero) => {
+  const deletePhoto = async (photo: ParkingPhoto) => {
     if (!token) return;
 
-    setProgreso("Borrando foto...");
+    setProgress("Borrando foto...");
 
     try {
-      const actualizado = await borrarFotoParqueadero(
+      const updated = await deleteParkingPhoto(
         parkingSpotId,
-        foto.id,
+        photo.id,
         token,
       );
 
-      setFotos(actualizado.fotos);
+      setPhotos(updated.photos);
     } catch (e) {
       Alert.alert(
         "No se pudo borrar la foto",
         e instanceof Error ? e.message : "Inténtalo de nuevo.",
       );
     } finally {
-      setProgreso(null);
+      setProgress(null);
     }
   };
 
-  const confirmarBorrado = (foto: FotoParqueadero) => {
+  const confirmDelete = (photo: ParkingPhoto) => {
     Alert.alert("Borrar foto", "¿Quieres borrar esta foto del parqueadero?", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Borrar",
         style: "destructive",
-        onPress: () => borrarFoto(foto),
+        onPress: () => deletePhoto(photo),
       },
     ]);
   };
 
-  const guardar = async () => {
+  const save = async () => {
     // Mismas reglas que valida el backend, para avisar antes de enviar
-    const precio = Number(precioHora.replace(/\D/g, ""));
-    if (titulo.trim().length < 3) {
+    const price = Number(pricePerHour.replace(/\D/g, ""));
+    if (title.trim().length < 3) {
       setError("El título debe tener al menos 3 caracteres.");
       return;
     }
-    if (barrio.trim().length < 2) {
+    if (neighborhood.trim().length < 2) {
       setError("Escribe el barrio.");
       return;
     }
-    if (direccion.trim().length < 3) {
+    if (address.trim().length < 3) {
       setError("Escribe la dirección.");
       return;
     }
-    if (!Number.isInteger(precio) || precio <= 0) {
+    if (!Number.isInteger(price) || price <= 0) {
       setError("El precio por hora debe ser un número mayor que 0.");
       return;
     }
@@ -191,18 +191,18 @@ export function EditParkingScreen({
     }
 
     setError(null);
-    setGuardando(true);
+    setSaving(true);
 
     try {
-      await editarParqueadero(
+      await editParkingSpot(
         parkingSpotId,
         {
-          titulo: titulo.trim(),
-          barrio: barrio.trim(),
-          direccion: direccion.trim(),
-          precioHora: precio,
-          caracteristicas,
-          ubicacion,
+          title: title.trim(),
+          neighborhood: neighborhood.trim(),
+          address: address.trim(),
+          pricePerHour: price,
+          features,
+          location,
         },
         token,
       );
@@ -213,13 +213,13 @@ export function EditParkingScreen({
         e instanceof Error ? e.message : "No se pudo guardar los cambios.",
       );
     } finally {
-      setGuardando(false);
+      setSaving(false);
     }
   };
 
-  if (cargandoDatos) {
+  if (loadingData) {
     return (
-      <View style={styles.centro}>
+      <View style={styles.center}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
@@ -227,112 +227,112 @@ export function EditParkingScreen({
 
   return (
     <KeyboardAvoidingView
-      style={styles.contenedor}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.contenido}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.titulo}>Editar parqueadero</Text>
-        <Text style={styles.subtitulo}>
+        <Text style={styles.title}>Editar parqueadero</Text>
+        <Text style={styles.subtitle}>
           Cambia la información de tu espacio. Las reservas que ya tienes no se
           modifican.
         </Text>
 
-        <Text style={styles.etiquetaCampo}>
-          Fotos ({fotos.length}/{MAX_FOTOS_PARQUEADERO})
+        <Text style={styles.fieldLabel}>
+          Fotos ({photos.length}/{MAX_PARKING_PHOTOS})
         </Text>
-        <Text style={styles.ayudaFotos}>
+        <Text style={styles.photosHelp}>
           Se guardan al instante. La primera es la portada.
         </Text>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filaFotos}
+          contentContainerStyle={styles.photosRow}
         >
-          {fotos.map((foto) => (
-            <View key={foto.id} style={styles.fotoCaja}>
-              <Image source={{ uri: foto.url }} style={styles.fotoImagen} />
+          {photos.map((photo) => (
+            <View key={photo.id} style={styles.photoBox}>
+              <Image source={{ uri: photo.url }} style={styles.photoImage} />
               <Pressable
-                style={styles.fotoBorrar}
-                onPress={() => confirmarBorrado(foto)}
-                disabled={ocupado}
+                style={styles.photoDelete}
+                onPress={() => confirmDelete(photo)}
+                disabled={busy}
               >
                 <Feather name="x" size={14} color={colors.white} />
               </Pressable>
             </View>
           ))}
 
-          {fotos.length < MAX_FOTOS_PARQUEADERO && (
+          {photos.length < MAX_PARKING_PHOTOS && (
             <Pressable
-              style={[styles.fotoCaja, styles.fotoAgregar]}
-              onPress={agregarFotos}
-              disabled={ocupado}
+              style={[styles.photoBox, styles.photoAdd]}
+              onPress={addPhotos}
+              disabled={busy}
             >
               <Feather name="plus" size={28} color={colors.textLight} />
             </Pressable>
           )}
         </ScrollView>
 
-        {progreso && (
-          <View style={styles.progreso}>
+        {progress && (
+          <View style={styles.progress}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.progresoTexto}>{progreso}</Text>
+            <Text style={styles.progressText}>{progress}</Text>
           </View>
         )}
 
-        <Text style={styles.etiquetaCampo}>Título</Text>
+        <Text style={styles.fieldLabel}>Título</Text>
         <Field
-          value={titulo}
-          onChangeText={setTitulo}
+          value={title}
+          onChangeText={setTitle}
           placeholder="Ej: Garaje techado con vigilancia"
           autoCapitalize="sentences"
         />
 
-        <Text style={styles.etiquetaCampo}>Ubicación</Text>
+        <Text style={styles.fieldLabel}>Ubicación</Text>
         {/* Al confirmar el punto, se llenan la dirección y el barrio (se pueden corregir) */}
         <LocationPicker
-          value={ubicacion}
-          onChange={(nueva, encontrado) => {
-            setUbicacion(nueva);
-            if (encontrado.barrio) setBarrio(encontrado.barrio);
-            if (encontrado.direccion) setDireccion(encontrado.direccion);
+          value={location}
+          onChange={(newPassword, found) => {
+            setLocation(newPassword);
+            if (found.neighborhood) setNeighborhood(found.neighborhood);
+            if (found.address) setAddress(found.address);
           }}
         />
-        <View style={styles.espacioUbicacion} />
+        <View style={styles.locationSpacing} />
         <Field
-          value={barrio}
-          onChangeText={setBarrio}
+          value={neighborhood}
+          onChangeText={setNeighborhood}
           placeholder="Barrio"
           autoCapitalize="words"
         />
         <Field
-          value={direccion}
-          onChangeText={setDireccion}
+          value={address}
+          onChangeText={setAddress}
           placeholder="Dirección (Ej: Cra. 76 #44-20)"
           autoCapitalize="sentences"
         />
 
-        <Text style={styles.etiquetaCampo}>Precio por hora (COP)</Text>
+        <Text style={styles.fieldLabel}>Precio por hora (COP)</Text>
         <Field
-          value={precioHora}
-          onChangeText={setPrecioHora}
+          value={pricePerHour}
+          onChangeText={setPricePerHour}
           placeholder="Ej: 5000"
           keyboardType="number-pad"
         />
 
-        <Text style={styles.etiquetaCampo}>Características</Text>
-        <FeaturesPicker value={caracteristicas} onChange={setCaracteristicas} />
+        <Text style={styles.fieldLabel}>Características</Text>
+        <FeaturesPicker value={features} onChange={setFeatures} />
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <View style={styles.boton}>
+        <View style={styles.button}>
           <PrimaryButton
-            label={guardando ? "Guardando..." : "Guardar cambios"}
-            onPress={guardar}
-            disabled={guardando || ocupado}
+            label={saving ? "Guardando..." : "Guardar cambios"}
+            onPress={save}
+            disabled={saving || busy}
           />
         </View>
       </ScrollView>
@@ -341,62 +341,62 @@ export function EditParkingScreen({
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  centro: {
+  center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.background,
   },
-  contenido: {
+  content: {
     paddingHorizontal: 24,
     paddingBottom: spacing.xl,
   },
-  titulo: {
+  title: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
   },
-  subtitulo: {
+  subtitle: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
   },
-  espacioUbicacion: {
+  locationSpacing: {
     height: spacing.sm,
   },
-  etiquetaCampo: {
+  fieldLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.text,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
-  ayudaFotos: {
+  photosHelp: {
     fontSize: 11,
     color: colors.textLight,
     marginBottom: spacing.sm,
   },
-  filaFotos: {
+  photosRow: {
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  fotoCaja: {
+  photoBox: {
     width: 96,
     height: 96,
     borderRadius: radius.lg,
   },
-  fotoImagen: {
+  photoImage: {
     width: 96,
     height: 96,
     borderRadius: radius.lg,
     backgroundColor: colors.imagePlaceholder,
   },
-  fotoBorrar: {
+  photoDelete: {
     position: "absolute",
     top: 4,
     right: 4,
@@ -407,18 +407,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.black,
   },
-  fotoAgregar: {
+  photoAdd: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.imagePlaceholder,
   },
-  progreso: {
+  progress: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  progresoTexto: {
+  progressText: {
     fontSize: 12,
     color: colors.textLight,
   },
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: spacing.md,
   },
-  boton: {
+  button: {
     marginTop: spacing.lg,
   },
 });

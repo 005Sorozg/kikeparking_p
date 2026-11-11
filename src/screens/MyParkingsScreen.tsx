@@ -12,14 +12,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MainTabScreenProps } from "../types/navigation";
 import {
-  Parqueadero,
-  formatearPrecio,
-  obtenerMisParqueaderos,
+  ParkingSpot,
+  formatPrice,
+  getMyParkingSpots,
 } from "../services/parking";
 import {
-  Estadisticas,
-  calcularEstadisticas,
-  obtenerReservasRecibidas,
+  Stats,
+  calculateStats,
+  getReceivedBookings,
 } from "../services/bookings";
 import { useAuth } from "../context/AuthContext";
 import { ImagePlaceholder } from "../components/ui";
@@ -29,9 +29,9 @@ import { colors, radius, spacing } from "../styles/theme";
 export function MyParkingsScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
-  const [parqueaderos, setParqueaderos] = useState<Parqueadero[] | null>(null);
+  const [mockParkingSpots, setMockParkingSpots] = useState<ParkingSpot[] | null>(null);
   // Estadísticas por id de parqueadero.
-  const [resumen, setResumen] = useState<Record<string, Estadisticas>>({});
+  const [summary, setSummary] = useState<Record<string, Stats>>({});
   const [error, setError] = useState<string | null>(null);
 
   // Se recarga al volver a la pestaña (ej: después de publicar un parqueadero).
@@ -42,26 +42,26 @@ export function MyParkingsScreen({ navigation }: MainTabScreenProps<"Explore">) 
         return;
       }
 
-      let activo = true;
+      let active = true;
 
       // Los parqueaderos y todas sus reservas se piden al mismo tiempo.
-      Promise.all([obtenerMisParqueaderos(token), obtenerReservasRecibidas(token)])
-        .then(([misParqueaderos, reservas]) => {
-          if (!activo) return;
+      Promise.all([getMyParkingSpots(token), getReceivedBookings(token)])
+        .then(([myParkingSpots, bookings]) => {
+          if (!active) return;
 
-          const porParqueadero: Record<string, Estadisticas> = {};
-          misParqueaderos.forEach((p) => {
-            porParqueadero[p.id] = calcularEstadisticas(
-              reservas.filter((r) => r.parqueadero.id === p.id),
+          const bySpot: Record<string, Stats> = {};
+          myParkingSpots.forEach((p) => {
+            bySpot[p.id] = calculateStats(
+              bookings.filter((r) => r.parkingSpot.id === p.id),
             );
           });
 
-          setParqueaderos(misParqueaderos);
-          setResumen(porParqueadero);
+          setMockParkingSpots(myParkingSpots);
+          setSummary(bySpot);
           setError(null);
         })
         .catch((e) => {
-          if (activo) {
+          if (active) {
             setError(
               e instanceof Error ? e.message : "No se pudieron cargar tus parqueaderos.",
             );
@@ -69,65 +69,65 @@ export function MyParkingsScreen({ navigation }: MainTabScreenProps<"Explore">) 
         });
 
       return () => {
-        activo = false;
+        active = false;
       };
     }, [token]),
   );
 
   return (
-    <View style={[styles.contenedor, { paddingTop: insets.top + spacing.md }]}>
-      <Text style={styles.titulo}>Mis parqueaderos</Text>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.md }]}>
+      <Text style={styles.title}>Mis parqueaderos</Text>
 
       <Pressable
-        style={styles.publicar}
+        style={styles.publish}
         onPress={() => navigation.navigate("AddParking")}
       >
         <Feather name="plus-circle" size={20} color={colors.primary} />
-        <Text style={styles.publicarTexto}>Publicar parqueadero</Text>
+        <Text style={styles.publishText}>Publicar parqueadero</Text>
       </Pressable>
 
       <FlatList
-        data={parqueaderos ?? []}
+        data={mockParkingSpots ?? []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.lista}
-        ItemSeparatorComponent={() => <View style={styles.separador} />}
+        contentContainerStyle={styles.list}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item }) => {
-          const r = resumen[item.id];
+          const r = summary[item.id];
           return (
             <Pressable
-              style={styles.fila}
+              style={styles.row}
               onPress={() =>
                 navigation.navigate("MyParkingDetail", { parkingSpotId: item.id })
               }
             >
               <ImagePlaceholder
-                style={styles.foto}
+                style={styles.photo}
                 iconSize={30}
-                source={item.imagen}
+                source={item.image}
               />
-              <View style={styles.textos}>
-                <Text style={styles.nombre} numberOfLines={1}>
-                  {item.titulo}
+              <View style={styles.texts}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {item.title}
                 </Text>
-                <Text style={styles.detalle} numberOfLines={1}>
-                  {item.barrio} · {item.direccion}
+                <Text style={styles.detail} numberOfLines={1}>
+                  {item.neighborhood} · {item.address}
                 </Text>
-                <Text style={styles.precio}>
-                  {formatearPrecio(item.precioHora)}
-                  <Text style={styles.precioUnidad}> / hora</Text>
+                <Text style={styles.price}>
+                  {formatPrice(item.pricePerHour)}
+                  <Text style={styles.priceUnit}> / hora</Text>
                 </Text>
                 {r && (
-                  <Text style={styles.resumen}>
-                    {r.proximas} {r.proximas === 1 ? "próxima" : "próximas"} ·{" "}
+                  <Text style={styles.summary}>
+                    {r.upcomingBookings} {r.upcomingBookings === 1 ? "próxima" : "próximas"} ·{" "}
                     {r.total} en total
                   </Text>
                 )}
               </View>
-              <View style={styles.derecha}>
+              <View style={styles.rightSide}>
                 <Text
-                  style={[styles.estado, !item.disponible && styles.estadoPausado]}
+                  style={[styles.status, !item.available && styles.statusPaused]}
                 >
-                  {item.disponible ? "Disponible" : "Pausado"}
+                  {item.available ? "Disponible" : "Pausado"}
                 </Text>
                 <Feather name="chevron-right" size={18} color={colors.textLight} />
               </View>
@@ -135,10 +135,10 @@ export function MyParkingsScreen({ navigation }: MainTabScreenProps<"Explore">) 
           );
         }}
         ListEmptyComponent={
-          !parqueaderos && !error ? (
-            <ActivityIndicator color={colors.primary} style={styles.cargando} />
+          !mockParkingSpots && !error ? (
+            <ActivityIndicator color={colors.primary} style={styles.loading} />
           ) : (
-            <Text style={styles.vacio}>
+            <Text style={styles.empty}>
               {error ?? "Aún no has publicado parqueaderos."}
             </Text>
           )
@@ -149,17 +149,17 @@ export function MyParkingsScreen({ navigation }: MainTabScreenProps<"Explore">) 
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  titulo: {
+  title: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.text,
     paddingHorizontal: 24,
   },
-  publicar: {
+  publish: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
@@ -170,75 +170,75 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  publicarTexto: {
+  publishText: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
   },
-  lista: {
+  list: {
     paddingHorizontal: 24,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  separador: {
+  separator: {
     height: 1,
     backgroundColor: colors.borderLight,
     marginVertical: spacing.md,
   },
-  fila: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
   },
-  foto: {
+  photo: {
     width: 84,
     height: 84,
     borderRadius: radius.md,
   },
-  textos: {
+  texts: {
     flex: 1,
   },
-  nombre: {
+  name: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 3,
   },
-  precio: {
+  price: {
     fontSize: 13,
     fontWeight: "700",
     color: colors.text,
     marginTop: 4,
   },
-  precioUnidad: {
+  priceUnit: {
     fontSize: 12,
     fontWeight: "400",
   },
-  resumen: {
+  summary: {
     fontSize: 12,
     color: colors.text,
     marginTop: 4,
   },
-  derecha: {
+  rightSide: {
     alignItems: "flex-end",
     gap: spacing.sm,
   },
-  estado: {
+  status: {
     fontSize: 11,
     fontWeight: "700",
     color: "#2E7D32",
   },
-  estadoPausado: {
+  statusPaused: {
     color: colors.textLight,
   },
-  cargando: {
+  loading: {
     marginTop: spacing.xl,
   },
-  vacio: {
+  empty: {
     textAlign: "center",
     color: colors.textLight,
     marginTop: spacing.xl,

@@ -1,41 +1,41 @@
 import { apiRequest } from "./api";
-import { Parqueadero, ParqueaderoApi, aParqueadero } from "./parking";
+import { ParkingSpot, ParkingSpotApi, toParkingSpot } from "./parking";
 
 // GET /favorites (conductor): sus parqueaderos guardados, del más reciente al más antiguo.
-export async function obtenerFavoritos(token: string): Promise<Parqueadero[]> {
-  const datos = await apiRequest<ParqueaderoApi[]>("/favorites", { token });
+export async function getFavorites(token: string): Promise<ParkingSpot[]> {
+  const data = await apiRequest<ParkingSpotApi[]>("/favorites", { token });
 
-  return datos.map(aParqueadero);
+  return data.map(toParkingSpot);
 }
 
 // PUT /favorites/:id: guardar (si ya estaba guardado, no pasa nada).
-export async function agregarFavorito(id: string, token: string): Promise<void> {
+export async function addFavorite(id: string, token: string): Promise<void> {
   await apiRequest<void>(`/favorites/${id}`, { method: "PUT", token });
 }
 
 // DELETE /favorites/:id: quitar (si no estaba, tampoco pasa nada).
-export async function quitarFavorito(id: string, token: string): Promise<void> {
+export async function removeFavorite(id: string, token: string): Promise<void> {
   await apiRequest<void>(`/favorites/${id}`, { method: "DELETE", token });
 }
 
-export interface ColeccionFavoritos {
-  barrio: string;
-  parqueaderos: Parqueadero[];
+export interface FavoritesCollection {
+  neighborhood: string;
+  mockParkingSpots: ParkingSpot[];
 }
 
 // Agrupa los favoritos por barrio, en el orden en que aparece cada barrio
 // (el del favorito más reciente primero).
-export const agruparPorBarrio = (
-  favoritos: Parqueadero[],
-): ColeccionFavoritos[] => {
-  const grupos = new Map<string, Parqueadero[]>();
+export const groupByNeighborhood = (
+  favorites: ParkingSpot[],
+): FavoritesCollection[] => {
+  const groups = new Map<string, ParkingSpot[]>();
 
-  favoritos.forEach((p) => {
-    grupos.set(p.barrio, [...(grupos.get(p.barrio) ?? []), p]);
+  favorites.forEach((p) => {
+    groups.set(p.neighborhood, [...(groups.get(p.neighborhood) ?? []), p]);
   });
 
-  return Array.from(grupos, ([barrio, parqueaderos]) => ({
-    barrio,
-    parqueaderos,
+  return Array.from(groups, ([neighborhood, mockParkingSpots]) => ({
+    neighborhood,
+    mockParkingSpots,
   }));
 };

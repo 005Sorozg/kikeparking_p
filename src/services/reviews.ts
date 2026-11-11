@@ -1,7 +1,7 @@
 import type { ImageSourcePropType } from "react-native";
 import { apiRequest } from "./api";
 
-interface ResenaApi {
+interface ReviewApi {
   id: number;
   rating: number;
   comment: string | null;
@@ -12,73 +12,73 @@ interface ResenaApi {
   };
 }
 
-export interface Resena {
+export interface Review {
   id: number;
-  estrellas: number;
-  comentario: string | null;
-  fecha: Date;
-  autor: {
-    nombre: string;
-    foto?: ImageSourcePropType;
+  stars: number;
+  comment: string | null;
+  date: Date;
+  author: {
+    name: string;
+    photo?: ImageSourcePropType;
   };
 }
 
-const aResena = (r: ResenaApi): Resena => ({
+const toReview = (r: ReviewApi): Review => ({
   id: r.id,
-  estrellas: r.rating,
-  comentario: r.comment,
-  fecha: new Date(r.createdAt),
-  autor: {
-    nombre: r.author.name,
-    foto: r.author.avatarUrl ? { uri: r.author.avatarUrl } : undefined,
+  stars: r.rating,
+  comment: r.comment,
+  date: new Date(r.createdAt),
+  author: {
+    name: r.author.name,
+    photo: r.author.avatarUrl ? { uri: r.author.avatarUrl } : undefined,
   },
 });
 
 // POST /bookings/:id/review: calificar una reserva completada.
 // El conductor califica el parqueadero; el propietario, al conductor (lo decide el backend).
-export async function calificarReserva(
-  reservaId: number,
-  estrellas: number,
-  comentario: string,
+export async function rateBooking(
+  bookingId: number,
+  stars: number,
+  comment: string,
   token: string,
-): Promise<Resena> {
-  const dato = await apiRequest<ResenaApi>(`/bookings/${reservaId}/review`, {
+): Promise<Review> {
+  const result = await apiRequest<ReviewApi>(`/bookings/${bookingId}/review`, {
     method: "POST",
     token,
-    body: { rating: estrellas, comment: comentario.trim() || undefined },
+    body: { rating: stars, comment: comment.trim() || undefined },
   });
 
-  return aResena(dato);
+  return toReview(result);
 }
 
 // GET /parking-spots/:id/reviews: lo que dijeron los conductores de un parqueadero.
-export async function obtenerResenas(parqueaderoId: string): Promise<Resena[]> {
-  const datos = await apiRequest<ResenaApi[]>(`/parking-spots/${parqueaderoId}/reviews`);
+export async function getReviews(parkingSpotId: string): Promise<Review[]> {
+  const data = await apiRequest<ReviewApi[]>(`/parking-spots/${parkingSpotId}/reviews`);
 
-  return datos.map(aResena);
+  return data.map(toReview);
 }
 
-export interface MiCalificacion {
+export interface MyRating {
   // Promedio con un decimal (0 si todavía no tiene reseñas)
-  promedio: number;
-  resenas: number;
+  average: number;
+  reviewCount: number;
 }
 
 // GET /users/me/rating: conductor = lo que le dan los propietarios;
 // propietario = el promedio de las reseñas de todos sus parqueaderos.
-export async function obtenerMiCalificacion(token: string): Promise<MiCalificacion> {
-  const dato = await apiRequest<{ rating: number; reviewCount: number }>("/users/me/rating", {
+export async function getMyRating(token: string): Promise<MyRating> {
+  const result = await apiRequest<{ rating: number; reviewCount: number }>("/users/me/rating", {
     token,
   });
 
-  return { promedio: dato.rating, resenas: dato.reviewCount };
+  return { average: result.rating, reviewCount: result.reviewCount };
 }
 
-const MESES = [
+const MONTHS = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
 ];
 
 // "nov. de 2026"
-export const formatearMesResena = (fecha: Date) =>
-  `${MESES[fecha.getMonth()]}. de ${fecha.getFullYear()}`;
+export const formatReviewMonth = (date: Date) =>
+  `${MONTHS[date.getMonth()]}. de ${date.getFullYear()}`;

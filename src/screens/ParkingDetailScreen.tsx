@@ -12,17 +12,17 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import type { AppScreenProps } from "../types/navigation";
 import {
-  Parqueadero,
-  formatearPrecio,
-  obtenerParqueadero,
+  ParkingSpot,
+  formatPrice,
+  getParkingSpot,
 } from "../services/parking";
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { ReviewItem } from "../components/ReviewItem";
 import { FeatureList } from "../components/ParkingFeatures";
-import { Resena, obtenerResenas } from "../services/reviews";
-import { useFavoritos } from "../context/FavoritesContext";
-import { abrirConversacion } from "../services/messages";
+import { Review, getReviews } from "../services/reviews";
+import { useFavorites } from "../context/FavoritesContext";
+import { openConversation } from "../services/messages";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Detalle de un parqueadero: se pide al backend por su id.
@@ -30,31 +30,31 @@ export function ParkingDetailScreen({
   route,
   navigation,
 }: AppScreenProps<"ParkingDetail">) {
-  const [spot, setSpot] = useState<Parqueadero | null>(null);
+  const [spot, setSpot] = useState<ParkingSpot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [fotoActiva, setFotoActiva] = useState(0);
-  const { usuario, token } = useAuth();
-  const [abriendoChat, setAbriendoChat] = useState(false);
-  const [errorChat, setErrorChat] = useState<string | null>(null);
-  const { esFavorito, alternarFavorito } = useFavoritos();
+  const [activePhoto, setActivePhoto] = useState(0);
+  const { user: user, token } = useAuth();
+  const [openingChat, setOpeningChat] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const { isFavorite: isFavorite, toggleFavorite: toggleFavorite } = useFavorites();
   // Reseñas de los conductores (se cargan aparte: si fallan, el detalle igual se muestra)
-  const [resenas, setResenas] = useState<Resena[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
-    let activo = true;
+    let active = true;
 
-    obtenerResenas(route.params.parkingSpotId)
-      .then((lista) => {
-        if (activo) setResenas(lista);
+    getReviews(route.params.parkingSpotId)
+      .then((list) => {
+        if (active) setReviews(list);
       })
       .catch(() => {});
 
-    obtenerParqueadero(route.params.parkingSpotId)
-      .then((dato) => {
-        if (activo) setSpot(dato);
+    getParkingSpot(route.params.parkingSpotId)
+      .then((result) => {
+        if (active) setSpot(result);
       })
       .catch((e) => {
-        if (activo) {
+        if (active) {
           setError(
             e instanceof Error ? e.message : "No se pudo cargar el parqueadero.",
           );
@@ -62,83 +62,83 @@ export function ParkingDetailScreen({
       });
 
     return () => {
-      activo = false;
+      active = false;
     };
   }, [route.params.parkingSpotId]);
 
   if (error) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.vacio}>{error}</Text>
+      <View style={styles.center}>
+        <Text style={styles.empty}>{error}</Text>
       </View>
     );
   }
 
   if (!spot) {
     return (
-      <View style={styles.centro}>
+      <View style={styles.center}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
 
   // Abre el chat con el dueño (o el que ya existía) y lleva a la conversación.
-  const contactar = async () => {
+  const contact = async () => {
     if (!token) return;
 
-    setAbriendoChat(true);
-    setErrorChat(null);
+    setOpeningChat(true);
+    setChatError(null);
     try {
-      const chat = await abrirConversacion(spot.id, token);
+      const chat = await openConversation(spot.id, token);
       navigation.navigate("Chat", {
         conversationId: chat.id,
-        titulo: chat.contacto.nombre,
+        title: chat.contact.name,
       });
     } catch (e) {
-      setErrorChat(e instanceof Error ? e.message : "No se pudo abrir el chat.");
+      setChatError(e instanceof Error ? e.message : "No se pudo abrir el chat.");
     } finally {
-      setAbriendoChat(false);
+      setOpeningChat(false);
     }
   };
 
   return (
     <ScrollView
-      style={styles.contenedor}
-      contentContainerStyle={styles.contenido}
+      style={styles.container}
+      contentContainerStyle={styles.content}
     >
-      <View style={styles.fotoContenedor}>
+      <View style={styles.photoContainer}>
         <ImagePlaceholder
-          style={styles.foto}
+          style={styles.photo}
           iconSize={96}
           source={
-            spot.fotos[fotoActiva] ? { uri: spot.fotos[fotoActiva].url } : undefined
+            spot.photos[activePhoto] ? { uri: spot.photos[activePhoto].url } : undefined
           }
         />
         {/* Solo los conductores guardan favoritos */}
-        {usuario?.role === "conductor" && (
+        {user?.role === "conductor" && (
           <Pressable
-            style={styles.corazon}
+            style={styles.heart}
             hitSlop={8}
-            onPress={() => alternarFavorito(spot)}
+            onPress={() => toggleFavorite(spot)}
           >
             <Ionicons
-              name={esFavorito(spot.id) ? "heart" : "heart-outline"}
+              name={isFavorite(spot.id) ? "heart" : "heart-outline"}
               size={18}
-              color={esFavorito(spot.id) ? colors.primary : "#B5B5B5"}
+              color={isFavorite(spot.id) ? colors.primary : "#B5B5B5"}
             />
           </Pressable>
         )}
       </View>
 
-      {spot.fotos.length > 1 && (
-        <View style={styles.miniaturas}>
-          {spot.fotos.map((foto, indice) => (
-            <Pressable key={foto.id} onPress={() => setFotoActiva(indice)}>
+      {spot.photos.length > 1 && (
+        <View style={styles.thumbnails}>
+          {spot.photos.map((photo, index) => (
+            <Pressable key={photo.id} onPress={() => setActivePhoto(index)}>
               <Image
-                source={{ uri: foto.url }}
+                source={{ uri: photo.url }}
                 style={[
-                  styles.miniatura,
-                  indice === fotoActiva && styles.miniaturaActiva,
+                  styles.thumbnail,
+                  index === activePhoto && styles.thumbnailActive,
                 ]}
               />
             </Pressable>
@@ -146,110 +146,110 @@ export function ParkingDetailScreen({
         </View>
       )}
 
-      <View style={styles.filaTitulo}>
-        <Text style={styles.titulo}>{spot.titulo}</Text>
-        <View style={styles.calificacion}>
+      <View style={styles.rowTitle}>
+        <Text style={styles.title}>{spot.title}</Text>
+        <View style={styles.rating}>
           <Ionicons name="star" size={14} color={colors.black} />
-          <Text style={styles.calificacionTexto}>
-            {spot.resenas > 0 ? spot.calificacion.toFixed(1) : "Nuevo"}
+          <Text style={styles.ratingText}>
+            {spot.reviewCount > 0 ? spot.rating.toFixed(1) : "Nuevo"}
           </Text>
         </View>
       </View>
 
-      <Text style={styles.detalle}>
-        {spot.barrio} · {spot.direccion}
+      <Text style={styles.detail}>
+        {spot.neighborhood} · {spot.address}
       </Text>
 
       {/* Abre Google Maps con la ruta hasta el parqueadero */}
-      {spot.ubicacion && (
+      {spot.location && (
         <Pressable
-          style={styles.comoLlegar}
+          style={styles.directions}
           hitSlop={8}
           onPress={() =>
             Linking.openURL(
-              `https://www.google.com/maps/dir/?api=1&destination=${spot.ubicacion!.lat},${spot.ubicacion!.lng}`,
+              `https://www.google.com/maps/dir/?api=1&destination=${spot.location!.lat},${spot.location!.lng}`,
             )
           }
         >
           <Ionicons name="navigate-outline" size={14} color={colors.text} />
-          <Text style={styles.comoLlegarTexto}>Cómo llegar</Text>
+          <Text style={styles.directionsText}>Cómo llegar</Text>
         </Pressable>
       )}
 
-      <Text style={styles.precio}>
-        {formatearPrecio(spot.precioHora)}
-        <Text style={styles.precioUnidad}> / hora</Text>
+      <Text style={styles.price}>
+        {formatPrice(spot.pricePerHour)}
+        <Text style={styles.priceUnit}> / hora</Text>
       </Text>
-      <Text style={[styles.estado, !spot.disponible && styles.estadoOcupado]}>
-        {spot.disponible ? "Disponible" : "No disponible por ahora"}
+      <Text style={[styles.status, !spot.available && styles.statusBusy]}>
+        {spot.available ? "Disponible" : "No disponible por ahora"}
       </Text>
 
       {/* Lo que marcó el propietario: vehículos, techado, vigilancia... */}
-      <Text style={styles.seccionOfrece}>Lo que ofrece</Text>
-      <FeatureList caracteristicas={spot.caracteristicas} />
+      <Text style={styles.offersSection}>Lo que ofrece</Text>
+      <FeatureList features={spot.features} />
 
-      <View style={styles.boton}>
+      <View style={styles.button}>
         <PrimaryButton
           label="Reservar"
           onPress={() =>
             navigation.navigate("Booking", { parkingSpotId: spot.id })
           }
-          disabled={!spot.disponible}
+          disabled={!spot.available}
         />
         {/* Solo los conductores escriben al propietario */}
-        {usuario?.role === "conductor" && (
+        {user?.role === "conductor" && (
           <Pressable
-            style={styles.contactar}
-            onPress={contactar}
-            disabled={abriendoChat}
+            style={styles.contact}
+            onPress={contact}
+            disabled={openingChat}
           >
             <Ionicons name="chatbubble-outline" size={16} color={colors.text} />
-            <Text style={styles.contactarTexto}>
-              {abriendoChat ? "Abriendo chat..." : "Contactar al propietario"}
+            <Text style={styles.contactText}>
+              {openingChat ? "Abriendo chat..." : "Contactar al propietario"}
             </Text>
           </Pressable>
         )}
-        {errorChat && <Text style={styles.error}>{errorChat}</Text>}
+        {chatError && <Text style={styles.error}>{chatError}</Text>}
       </View>
       {/* Lo que dijeron los conductores que ya lo usaron */}
-      <Text style={styles.seccionResenas}>
-        {resenas.length > 0 ? "Reseñas" : "Aún no tiene reseñas"}
+      <Text style={styles.reviewsSection}>
+        {reviews.length > 0 ? "Reseñas" : "Aún no tiene reseñas"}
       </Text>
-      {resenas.map((r) => (
-        <ReviewItem key={r.id} resena={r} />
+      {reviews.map((r) => (
+        <ReviewItem key={r.id} review={r} />
       ))}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  contenido: {
+  content: {
     padding: 18,
   },
-  centro: {
+  center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.background,
   },
-  vacio: {
+  empty: {
     color: colors.textLight,
   },
-  fotoContenedor: {
+  photoContainer: {
     width: 280,
     alignSelf: "center",
     marginBottom: spacing.md,
   },
-  foto: {
+  photo: {
     width: 280,
     height: 280,
     borderRadius: radius.lg,
   },
-  corazon: {
+  heart: {
     position: "absolute",
     top: 12,
     right: 12,
@@ -260,72 +260,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  miniaturas: {
+  thumbnails: {
     flexDirection: "row",
     justifyContent: "center",
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  miniatura: {
+  thumbnail: {
     width: 48,
     height: 48,
     borderRadius: 8,
     opacity: 0.6,
   },
-  miniaturaActiva: {
+  thumbnailActive: {
     opacity: 1,
     borderWidth: 2,
     borderColor: colors.black,
   },
-  filaTitulo: {
+  rowTitle: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  titulo: {
+  title: {
     flex: 1,
     fontSize: 18,
     fontWeight: "700",
     color: colors.text,
   },
-  calificacion: {
+  rating: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginLeft: spacing.sm,
   },
-  calificacionTexto: {
+  ratingText: {
     fontSize: 12,
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 4,
   },
-  precio: {
+  price: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.md,
   },
-  precioUnidad: {
+  priceUnit: {
     fontSize: 12,
     fontWeight: "400",
   },
-  estado: {
+  status: {
     fontSize: 12,
     fontWeight: "600",
     color: "#2E7D32",
     marginTop: spacing.xs,
   },
-  estadoOcupado: {
+  statusBusy: {
     color: colors.primary,
   },
-  boton: {
+  button: {
     marginTop: spacing.lg,
   },
-  contactar: {
+  contact: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.text,
   },
-  contactarTexto: {
+  contactText: {
     fontSize: 13,
     fontWeight: "500",
     color: colors.text,
@@ -348,27 +348,27 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: "center",
   },
-  comoLlegar: {
+  directions: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
     gap: 4,
     marginTop: spacing.xs,
   },
-  comoLlegarTexto: {
+  directionsText: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.text,
     textDecorationLine: "underline",
   },
-  seccionOfrece: {
+  offersSection: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
   },
-  seccionResenas: {
+  reviewsSection: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,

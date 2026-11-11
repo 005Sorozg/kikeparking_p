@@ -2,55 +2,55 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Stars } from "./Stars";
 import { AvatarPlaceholder } from "./ui";
-import { Resena, formatearMesResena } from "../services/reviews";
+import { Review, formatReviewMonth } from "../services/reviews";
 import { colors, spacing } from "../styles/theme";
 
 // Una reseña: foto y nombre de quien la escribió, estrellas, fecha y comentario.
-export function ReviewItem({ resena }: { resena: Resena }) {
+export function ReviewItem({ review: review }: { review: Review }) {
   return (
-    <View style={styles.contenedor}>
-      <View style={styles.cabecera}>
-        <AvatarPlaceholder size={32} source={resena.autor.foto} />
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <AvatarPlaceholder size={32} source={review.author.photo} />
         <View>
-          <Text style={styles.nombre}>{resena.autor.nombre}</Text>
-          <View style={styles.linea}>
-            <Stars value={resena.estrellas} size={11} />
-            <Text style={styles.fecha}>· {formatearMesResena(resena.fecha)}</Text>
+          <Text style={styles.name}>{review.author.name}</Text>
+          <View style={styles.line}>
+            <Stars value={review.stars} size={11} />
+            <Text style={styles.date}>· {formatReviewMonth(review.date)}</Text>
           </View>
         </View>
       </View>
-      {resena.comentario && <Text style={styles.comentario}>{resena.comentario}</Text>}
+      {review.comment && <Text style={styles.comment}>{review.comment}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  cabecera: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  nombre: {
+  name: {
     fontSize: 13,
     fontWeight: "600",
     color: colors.text,
   },
-  linea: {
+  line: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginTop: 2,
   },
-  fecha: {
+  date: {
     fontSize: 11,
     color: colors.textLight,
   },
-  comentario: {
+  comment: {
     fontSize: 13,
     color: colors.text,
     marginTop: spacing.sm,

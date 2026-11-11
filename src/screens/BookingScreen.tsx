@@ -11,17 +11,17 @@ import { Feather } from "@expo/vector-icons";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import type { AppScreenProps } from "../types/navigation";
 import {
-  Parqueadero,
-  formatearPrecio,
-  obtenerParqueadero,
+  ParkingSpot,
+  formatPrice,
+  getParkingSpot,
 } from "../services/parking";
 import {
-  HorarioOcupado,
+  BusySlot,
   VehicleKind,
-  crearReserva,
-  formatearHora,
-  formatearRango,
-  obtenerHorariosOcupados,
+  createBooking,
+  formatHour,
+  formatRange,
+  getBusySlots,
 } from "../services/bookings";
 import { useAuth } from "../context/AuthContext";
 import { Chip, ImagePlaceholder, PrimaryButton } from "../components/ui";
@@ -46,23 +46,23 @@ LocaleConfig.locales.es = {
 LocaleConfig.defaultLocale = "es";
 
 // Hasta cuántos días hacia adelante se puede reservar.
-const DIAS_ADELANTE = 60;
-const MAX_HORAS = 24;
-const HORA_MS = 60 * 60 * 1000;
-const HORAS_DEL_DIA = Array.from({ length: 24 }, (_, h) => h);
+const DAYS_AHEAD = 60;
+const MAX_HOURS = 24;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 // Date -> "2026-11-07" (lo que usa el calendario), en hora local.
-const aIso = (fecha: Date) =>
-  `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+const toIso = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
 // "2026-11-07" -> Date a medianoche, en hora local.
-const desdeIso = (iso: string) => {
+const fromIso = (iso: string) => {
   const [a, m, d] = iso.split("-").map(Number);
   return new Date(a, m - 1, d);
 };
 
 // Medianoche de hoy + i días.
-const diaDesdeHoy = (i: number) => {
+const dayFromToday = (i: number) => {
   const f = new Date();
   f.setHours(0, 0, 0, 0);
   f.setDate(f.getDate() + i);
@@ -70,44 +70,44 @@ const diaDesdeHoy = (i: number) => {
 };
 
 // Horas de entrada que se pueden elegir ese día: hoy solo las que aún no pasan.
-const horasPosibles = (dia: Date) => {
-  const ahora = new Date();
-  const esHoy = dia.toDateString() === ahora.toDateString();
-  return esHoy
-    ? HORAS_DEL_DIA.filter((h) => h > ahora.getHours())
-    : HORAS_DEL_DIA;
+const possibleHours = (day: Date) => {
+  const now = new Date();
+  const isToday = day.toDateString() === now.toDateString();
+  return isToday
+    ? DAY_HOURS.filter((h) => h > now.getHours())
+    : DAY_HOURS;
 };
 
 // El día elegido a la hora h en punto.
-const aLaHora = (dia: Date, h: number) => {
-  const f = new Date(dia);
+const atHour = (day: Date, h: number) => {
+  const f = new Date(day);
   f.setHours(h, 0, 0, 0);
   return f;
 };
 
 // ¿El rango [inicio, fin) se cruza con alguna reserva? (misma regla que el backend)
-const seCruza = (ocupados: HorarioOcupado[], inicio: Date, fin: Date) =>
-  ocupados.some((o) => o.entrada < fin && o.salida > inicio);
+const overlaps = (busySlots: BusySlot[], start: Date, end: Date) =>
+  busySlots.some((o) => o.start < end && o.end > start);
 
 // Horas en que se puede entrar ese día: que no hayan pasado y cuya primera hora esté libre.
-const horasLibres = (dia: Date, ocupados: HorarioOcupado[]) =>
-  horasPosibles(dia).filter((h) => {
-    const inicio = aLaHora(dia, h);
-    return !seCruza(ocupados, inicio, new Date(inicio.getTime() + HORA_MS));
+const freeHours = (day: Date, busySlots: BusySlot[]) =>
+  possibleHours(day).filter((h) => {
+    const start = atHour(day, h);
+    return !overlaps(busySlots, start, new Date(start.getTime() + HOUR_MS));
   });
 
 // Cuántas horas se pueden reservar desde "entrada" sin chocar con la siguiente reserva.
-const maxHorasDesde = (entrada: Date, ocupados: HorarioOcupado[]) => {
-  const siguientes = ocupados
-    .filter((o) => o.entrada >= entrada)
-    .map((o) => o.entrada.getTime());
+const maxHoursFrom = (start: Date, busySlots: BusySlot[]) => {
+  const upcoming = busySlots
+    .filter((o) => o.start >= start)
+    .map((o) => o.start.getTime());
 
-  if (siguientes.length === 0) return MAX_HORAS;
+  if (upcoming.length === 0) return MAX_HOURS;
 
-  const horasHastaLaSiguiente = Math.floor(
-    (Math.min(...siguientes) - entrada.getTime()) / HORA_MS,
+  const hoursUntilNext = Math.floor(
+    (Math.min(...upcoming) - start.getTime()) / HOUR_MS,
   );
-  return Math.min(MAX_HORAS, horasHastaLaSiguiente);
+  return Math.min(MAX_HOURS, hoursUntilNext);
 };
 
 // Reserva: día, hora de entrada, horas, vehículo y resumen del precio.
@@ -115,181 +115,181 @@ export function BookingScreen({
   route,
   navigation,
 }: AppScreenProps<"Booking">) {
-  const { usuario, token } = useAuth();
-  const [spot, setSpot] = useState<Parqueadero | null>(null);
-  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const { user: user, token } = useAuth();
+  const [spot, setSpot] = useState<ParkingSpot | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Si ya pasó la última hora de hoy, el primer día que se puede elegir es mañana.
-  const primerDia = useMemo(
-    () => (horasPosibles(diaDesdeHoy(0)).length > 0 ? diaDesdeHoy(0) : diaDesdeHoy(1)),
+  const firstDay = useMemo(
+    () => (possibleHours(dayFromToday(0)).length > 0 ? dayFromToday(0) : dayFromToday(1)),
     [],
   );
-  const ultimoDia = useMemo(() => diaDesdeHoy(DIAS_ADELANTE), []);
+  const lastDay = useMemo(() => dayFromToday(DAYS_AHEAD), []);
 
-  const [ocupados, setOcupados] = useState<HorarioOcupado[]>([]);
-  const [dia, setDia] = useState(primerDia);
-  const [hora, setHora] = useState<number | undefined>(horasPosibles(primerDia)[0]);
-  const [horas, setHoras] = useState(2);
-  const [vehiculo, setVehiculo] = useState<VehicleKind>("carro");
-  const [enviando, setEnviando] = useState(false);
+  const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
+  const [day, setDay] = useState(firstDay);
+  const [hour, setHour] = useState<number | undefined>(possibleHours(firstDay)[0]);
+  const [hours, setHours] = useState(2);
+  const [vehicle, setVehicle] = useState<VehicleKind>("carro");
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Cambia al día "d" y, si la hora elegida no está libre ese día, toma la primera libre.
-  const ubicar = (d: Date, lista: HorarioOcupado[]) => {
-    const libres = horasLibres(d, lista);
-    setDia(d);
-    setHora((actual) =>
-      actual !== undefined && libres.includes(actual) ? actual : libres[0],
+  const locate = (d: Date, list: BusySlot[]) => {
+    const free = freeHours(d, list);
+    setDay(d);
+    setHour((current) =>
+      current !== undefined && free.includes(current) ? current : free[0],
     );
   };
 
   // Pide los horarios ocupados y deja elegido un día con horas libres.
-  const cargarOcupados = async (diaActual: Date) => {
+  const loadBusySlots = async (currentDay: Date) => {
     if (!token) return;
 
-    const lista = await obtenerHorariosOcupados(route.params.parkingSpotId, token);
-    setOcupados(lista);
+    const list = await getBusySlots(route.params.parkingSpotId, token);
+    setBusySlots(list);
 
-    let d = diaActual;
-    while (horasLibres(d, lista).length === 0 && d < ultimoDia) {
+    let d = currentDay;
+    while (freeHours(d, list).length === 0 && d < lastDay) {
       d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
     }
-    ubicar(d, lista);
+    locate(d, list);
   };
 
   useEffect(() => {
-    let activo = true;
+    let active = true;
 
-    cargarOcupados(primerDia).catch(() => {
-      if (activo) setError("No se pudieron cargar los horarios ocupados.");
+    loadBusySlots(firstDay).catch(() => {
+      if (active) setError("No se pudieron cargar los horarios ocupados.");
     });
 
-    obtenerParqueadero(route.params.parkingSpotId)
-      .then((dato) => {
-        if (activo) {
-          setSpot(dato);
+    getParkingSpot(route.params.parkingSpotId)
+      .then((result) => {
+        if (active) {
+          setSpot(result);
           // Si no recibe carros, arranca con moto
-          if (!dato.caracteristicas.aceptaCarros) setVehiculo("moto");
+          if (!result.features.acceptsCars) setVehicle("moto");
         }
       })
       .catch((e) => {
-        if (activo) {
-          setErrorCarga(
+        if (active) {
+          setLoadError(
             e instanceof Error ? e.message : "No se pudo cargar el parqueadero.",
           );
         }
       });
 
     return () => {
-      activo = false;
+      active = false;
     };
   }, [route.params.parkingSpotId]);
 
-  const elegirDia = (iso: string) => {
-    ubicar(desdeIso(iso), ocupados);
+  const pickDay = (iso: string) => {
+    locate(fromIso(iso), busySlots);
     setError(null);
   };
 
   // Días sin ninguna hora libre: salen deshabilitados en el calendario.
-  const diasLlenos = useMemo(() => {
-    const marcas: Record<string, { disabled: true; disableTouchEvent: true }> = {};
-    const dias = new Set(ocupados.map((o) => aIso(o.entrada)));
+  const fullDays = useMemo(() => {
+    const brands: Record<string, { disabled: true; disableTouchEvent: true }> = {};
+    const days = new Set(busySlots.map((o) => toIso(o.start)));
 
-    dias.forEach((iso) => {
-      if (horasLibres(desdeIso(iso), ocupados).length === 0) {
-        marcas[iso] = { disabled: true, disableTouchEvent: true };
+    days.forEach((iso) => {
+      if (freeHours(fromIso(iso), busySlots).length === 0) {
+        brands[iso] = { disabled: true, disableTouchEvent: true };
       }
     });
-    return marcas;
-  }, [ocupados]);
+    return brands;
+  }, [busySlots]);
 
-  if (errorCarga) {
+  if (loadError) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.vacio}>{errorCarga}</Text>
+      <View style={styles.center}>
+        <Text style={styles.empty}>{loadError}</Text>
       </View>
     );
   }
 
   if (!spot) {
     return (
-      <View style={styles.centro}>
+      <View style={styles.center}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
 
-  const libres = horasLibres(dia, ocupados);
-  const hayHora = hora !== undefined && libres.includes(hora);
-  const entrada = aLaHora(dia, hora ?? 0);
+  const openHours = freeHours(day, busySlots);
+  const hasHour = hour !== undefined && openHours.includes(hour);
+  const start = atHour(day, hour ?? 0);
   // No se puede pasar de la siguiente reserva: si hay una en 3 horas, el máximo es 3.
-  const maxHoras = hayHora ? maxHorasDesde(entrada, ocupados) : 1;
-  const horasReserva = Math.min(horas, maxHoras);
-  const salida = new Date(entrada.getTime() + horasReserva * HORA_MS);
-  const total = spot.precioHora * horasReserva;
-  const esConductor = usuario?.role === "conductor";
+  const maxHours = hasHour ? maxHoursFrom(start, busySlots) : 1;
+  const bookingHours = Math.min(hours, maxHours);
+  const end = new Date(start.getTime() + bookingHours * HOUR_MS);
+  const total = spot.pricePerHour * bookingHours;
+  const isDriver = user?.role === "conductor";
 
-  const confirmar = async () => {
+  const confirm = async () => {
     if (!token) {
       setError("Debes iniciar sesión para reservar.");
       return;
     }
 
-    setEnviando(true);
+    setSending(true);
     setError(null);
 
     try {
       // La reserva queda pendiente de pago y la hora apartada por 10 minutos
-      const reserva = await crearReserva(
-        { parqueaderoId: spot.id, vehiculo, entrada, horas: horasReserva },
+      const booking = await createBooking(
+        { parkingSpotId: spot.id, vehicle, start, hours: bookingHours },
         token,
       );
       navigation.replace("Payment", {
-        reservaId: reserva.id,
-        titulo: spot.titulo,
-        total: reserva.total,
-        limitePago: (reserva.limitePago ?? new Date()).toISOString(),
+        bookingId: booking.id,
+        title: spot.title,
+        total: booking.total,
+        paymentDeadline: (booking.paymentDeadline ?? new Date()).toISOString(),
       });
     } catch (e) {
       // Ej: "El parqueadero ya está reservado en ese horario..." si alguien reservó
       // mientras tanto. Se recargan los ocupados para que ese horario salga en gris.
       setError(e instanceof Error ? e.message : "No se pudo crear la reserva.");
-      setEnviando(false);
-      cargarOcupados(dia).catch(() => {});
+      setSending(false);
+      loadBusySlots(day).catch(() => {});
     }
   };
 
   return (
     <ScrollView
-      style={styles.contenedor}
-      contentContainerStyle={styles.contenido}
+      style={styles.container}
+      contentContainerStyle={styles.content}
     >
-      <Text style={styles.titulo}>Confirma tu reserva</Text>
+      <Text style={styles.title}>Confirma tu reserva</Text>
 
-      <View style={styles.resumenSpot}>
+      <View style={styles.summarySpot}>
         <ImagePlaceholder
-          style={styles.foto}
+          style={styles.photo}
           iconSize={26}
-          source={spot.imagen}
+          source={spot.image}
         />
-        <View style={styles.resumenTextos}>
-          <Text style={styles.nombre} numberOfLines={1}>
-            {spot.titulo}
+        <View style={styles.summaryTexts}>
+          <Text style={styles.name} numberOfLines={1}>
+            {spot.title}
           </Text>
-          <Text style={styles.detalle}>{spot.barrio}</Text>
-          <Text style={styles.detalle}>{spot.direccion}</Text>
+          <Text style={styles.detail}>{spot.neighborhood}</Text>
+          <Text style={styles.detail}>{spot.address}</Text>
         </View>
       </View>
 
-      <Text style={styles.seccion}>Día</Text>
+      <Text style={styles.section}>Día</Text>
       <Calendar
-        style={styles.calendario}
-        current={aIso(dia)}
-        minDate={aIso(primerDia)}
-        maxDate={aIso(ultimoDia)}
+        style={styles.calendar}
+        current={toIso(day)}
+        minDate={toIso(firstDay)}
+        maxDate={toIso(lastDay)}
         firstDay={1}
-        onDayPress={(d) => elegirDia(d.dateString)}
-        markedDates={{ ...diasLlenos, [aIso(dia)]: { selected: true } }}
+        onDayPress={(d) => pickDay(d.dateString)}
+        markedDates={{ ...fullDays, [toIso(day)]: { selected: true } }}
         theme={{
           calendarBackground: colors.background,
           selectedDayBackgroundColor: colors.primary,
@@ -304,18 +304,18 @@ export function BookingScreen({
         }}
       />
 
-      <Text style={styles.seccion}>Hora de entrada</Text>
-      <View style={styles.horas}>
-        {horasPosibles(dia).map((h) => {
-          const ocupada = !libres.includes(h);
+      <Text style={styles.section}>Hora de entrada</Text>
+      <View style={styles.hours}>
+        {possibleHours(day).map((h) => {
+          const busy = !openHours.includes(h);
           return (
             <Chip
               key={h}
-              label={formatearHora(aLaHora(dia, h))}
-              selected={hora === h && !ocupada}
-              disabled={ocupada}
+              label={formatHour(atHour(day, h))}
+              selected={hour === h && !busy}
+              disabled={busy}
               onPress={() => {
-                setHora(h);
+                setHour(h);
                 setError(null);
               }}
             />
@@ -323,78 +323,78 @@ export function BookingScreen({
         })}
       </View>
 
-      <Text style={styles.seccion}>Horas</Text>
-      <View style={styles.contador}>
+      <Text style={styles.section}>Horas</Text>
+      <View style={styles.counter}>
         <Pressable
-          style={styles.circulo}
-          onPress={() => setHoras(Math.max(1, horasReserva - 1))}
+          style={styles.circle}
+          onPress={() => setHours(Math.max(1, bookingHours - 1))}
         >
           <Feather name="minus" size={17} color={colors.text} />
         </Pressable>
-        <Text style={styles.contadorValor}>{horasReserva}</Text>
+        <Text style={styles.counterValue}>{bookingHours}</Text>
         <Pressable
-          style={styles.circulo}
-          onPress={() => setHoras(Math.min(maxHoras, horasReserva + 1))}
+          style={styles.circle}
+          onPress={() => setHours(Math.min(maxHours, bookingHours + 1))}
         >
           <Feather name="plus" size={17} color={colors.text} />
         </Pressable>
       </View>
-      {hayHora && maxHoras < MAX_HORAS && (
-        <Text style={styles.aviso}>
-          Máximo {maxHoras} {maxHoras === 1 ? "hora" : "horas"}: a las{" "}
-          {formatearHora(new Date(entrada.getTime() + maxHoras * HORA_MS))} ya
+      {hasHour && maxHours < MAX_HOURS && (
+        <Text style={styles.notice}>
+          Máximo {maxHours} {maxHours === 1 ? "hora" : "horas"}: a las{" "}
+          {formatHour(new Date(start.getTime() + maxHours * HOUR_MS))} ya
           está reservado.
         </Text>
       )}
 
-      <Text style={styles.seccion}>Vehículo</Text>
+      <Text style={styles.section}>Vehículo</Text>
       {/* Solo los vehículos que recibe este parqueadero */}
       <View style={styles.chips}>
-        {spot.caracteristicas.aceptaCarros && (
+        {spot.features.acceptsCars && (
           <Chip
             label="Carro"
             icon="truck"
-            selected={vehiculo === "carro"}
-            onPress={() => setVehiculo("carro")}
+            selected={vehicle === "carro"}
+            onPress={() => setVehicle("carro")}
           />
         )}
-        {spot.caracteristicas.aceptaMotos && (
+        {spot.features.acceptsMotorcycles && (
           <Chip
             label="Moto"
             icon="navigation"
-            selected={vehiculo === "moto"}
-            onPress={() => setVehiculo("moto")}
+            selected={vehicle === "moto"}
+            onPress={() => setVehicle("moto")}
           />
         )}
       </View>
 
-      <View style={styles.tarjeta}>
-        <Text style={styles.detalle}>{formatearRango(entrada, salida)}</Text>
-        <View style={styles.filaPrecio}>
-          <Text style={styles.nombre}>
-            {formatearPrecio(spot.precioHora)} x {horasReserva}{" "}
-            {horasReserva === 1 ? "hora" : "horas"}
+      <View style={styles.card}>
+        <Text style={styles.detail}>{formatRange(start, end)}</Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.name}>
+            {formatPrice(spot.pricePerHour)} x {bookingHours}{" "}
+            {bookingHours === 1 ? "hora" : "horas"}
           </Text>
-          <Text style={styles.nombre}>{formatearPrecio(total)}</Text>
+          <Text style={styles.name}>{formatPrice(total)}</Text>
         </View>
-        <View style={[styles.filaPrecio, styles.filaTotal]}>
+        <View style={[styles.priceRow, styles.totalRow]}>
           <Text style={styles.total}>Total</Text>
-          <Text style={styles.total}>{formatearPrecio(total)}</Text>
+          <Text style={styles.total}>{formatPrice(total)}</Text>
         </View>
       </View>
 
-      {!esConductor && (
-        <Text style={styles.aviso}>
+      {!isDriver && (
+        <Text style={styles.notice}>
           Las reservas son para cuentas de conductor.
         </Text>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <View style={styles.boton}>
+      <View style={styles.button}>
         <PrimaryButton
-          label={enviando ? "Reservando..." : "Continuar al pago"}
-          onPress={confirmar}
-          disabled={enviando || !esConductor || !spot.disponible || !hayHora}
+          label={sending ? "Reservando..." : "Continuar al pago"}
+          onPress={confirm}
+          disabled={sending || !isDriver || !spot.available || !hasHour}
         />
       </View>
     </ScrollView>
@@ -402,53 +402,53 @@ export function BookingScreen({
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  contenido: {
+  content: {
     padding: 18,
     paddingBottom: spacing.xl,
   },
-  centro: {
+  center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.background,
   },
-  vacio: {
+  empty: {
     color: colors.textLight,
   },
-  titulo: {
+  title: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
     marginBottom: spacing.md,
   },
-  resumenSpot: {
+  summarySpot: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
   },
-  foto: {
+  photo: {
     width: 64,
     height: 64,
     borderRadius: radius.sm,
   },
-  resumenTextos: {
+  summaryTexts: {
     flex: 1,
   },
-  nombre: {
+  name: {
     fontSize: 13,
     fontWeight: "500",
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 11,
     color: colors.textLight,
     marginTop: 3,
   },
-  seccion: {
+  section: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
@@ -459,12 +459,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
   },
-  contador: {
+  counter: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
   },
-  circulo: {
+  circle: {
     width: 34,
     height: 34,
     borderRadius: 17,
@@ -472,26 +472,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  contadorValor: {
+  counterValue: {
     minWidth: 24,
     textAlign: "center",
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
   },
-  tarjeta: {
+  card: {
     marginTop: spacing.lg,
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  filaPrecio: {
+  priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: spacing.sm,
   },
-  filaTotal: {
+  totalRow: {
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
@@ -501,18 +501,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
-  horas: {
+  hours: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
-  calendario: {
+  calendar: {
     borderWidth: 1,
     borderColor: colors.borderLight,
     borderRadius: radius.lg,
     paddingBottom: spacing.sm,
   },
-  aviso: {
+  notice: {
     marginTop: spacing.md,
     fontSize: 12,
     color: colors.textLight,
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
   },
-  boton: {
+  button: {
     marginTop: spacing.lg,
   },
 });

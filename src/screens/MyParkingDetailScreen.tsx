@@ -12,24 +12,24 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import type { AppScreenProps } from "../types/navigation";
 import {
-  Parqueadero,
-  cambiarDisponibilidad,
-  formatearPrecio,
-  obtenerParqueadero,
+  ParkingSpot,
+  changeAvailability,
+  formatPrice,
+  getParkingSpot,
 } from "../services/parking";
 import {
-  Reserva,
-  calcularEstadisticas,
-  esProxima,
-  formatearRango,
-  obtenerReservasRecibidas,
-  tiempoRestante,
+  Booking,
+  calculateStats,
+  isUpcoming,
+  formatRange,
+  getReceivedBookings,
+  timeLeft,
 } from "../services/bookings";
 import { BookingPhaseTag } from "../components/BookingPhaseTag";
 import { ReviewModal } from "../components/ReviewModal";
 import { ReviewItem } from "../components/ReviewItem";
 import { Stars } from "../components/Stars";
-import { Resena, obtenerResenas } from "../services/reviews";
+import { Review, getReviews } from "../services/reviews";
 import { useAuth } from "../context/AuthContext";
 import { ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
@@ -41,14 +41,14 @@ export function MyParkingDetailScreen({
 }: AppScreenProps<"MyParkingDetail">) {
   const { token } = useAuth();
   const { parkingSpotId } = route.params;
-  const [spot, setSpot] = useState<Parqueadero | null>(null);
-  const [reservas, setReservas] = useState<Reserva[]>([]);
+  const [spot, setSpot] = useState<ParkingSpot | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [cambiando, setCambiando] = useState(false);
-  const [errorPausa, setErrorPausa] = useState<string | null>(null);
-  const [resenas, setResenas] = useState<Resena[]>([]);
+  const [changing, setChanging] = useState(false);
+  const [pauseError, setPauseError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   // Reserva cuyo conductor se está calificando
-  const [calificando, setCalificando] = useState<Reserva | null>(null);
+  const [reviewingBooking, setReviewingBooking] = useState<Booking | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,21 +57,21 @@ export function MyParkingDetailScreen({
         return;
       }
 
-      let activo = true;
+      let active = true;
 
       Promise.all([
-        obtenerParqueadero(parkingSpotId),
-        obtenerReservasRecibidas(token, parkingSpotId),
-        obtenerResenas(parkingSpotId),
+        getParkingSpot(parkingSpotId),
+        getReceivedBookings(token, parkingSpotId),
+        getReviews(parkingSpotId),
       ])
-        .then(([dato, lista, opiniones]) => {
-          if (!activo) return;
-          setSpot(dato);
-          setReservas(lista);
-          setResenas(opiniones);
+        .then(([result, list, reviewList]) => {
+          if (!active) return;
+          setSpot(result);
+          setBookings(list);
+          setReviews(reviewList);
         })
         .catch((e) => {
-          if (activo) {
+          if (active) {
             setError(
               e instanceof Error ? e.message : "No se pudo cargar el parqueadero.",
             );
@@ -79,91 +79,91 @@ export function MyParkingDetailScreen({
         });
 
       return () => {
-        activo = false;
+        active = false;
       };
     }, [token, parkingSpotId]),
   );
 
   if (error) {
     return (
-      <View style={styles.centro}>
-        <Text style={styles.vacio}>{error}</Text>
+      <View style={styles.center}>
+        <Text style={styles.empty}>{error}</Text>
       </View>
     );
   }
 
   if (!spot) {
     return (
-      <View style={styles.centro}>
+      <View style={styles.center}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
 
 // Pausar / reactivar: el interruptor cambia "available" en el backend.
-  const alternarDisponible = async (disponible: boolean) => {
+  const toggleAvailable = async (available: boolean) => {
     if (!token) return;
 
-    setCambiando(true);
-    setErrorPausa(null);
+    setChanging(true);
+    setPauseError(null);
     try {
-      setSpot(await cambiarDisponibilidad(spot.id, disponible, token));
+      setSpot(await changeAvailability(spot.id, available, token));
     } catch (e) {
-      setErrorPausa(
+      setPauseError(
         e instanceof Error ? e.message : "No se pudo cambiar la disponibilidad.",
       );
     } finally {
-      setCambiando(false);
+      setChanging(false);
     }
   };
 
-  const stats = calcularEstadisticas(reservas);
-  const proximas = reservas
-    .filter(esProxima)
-    .sort((a, b) => a.entrada.getTime() - b.entrada.getTime());
+  const stats = calculateStats(bookings);
+  const upcomingBookings = bookings
+    .filter(isUpcoming)
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
     // Quién está usando el parqueadero ahora mismo
-  const enCurso = reservas.filter((r) => r.fase === "in_progress");
+  const inProgress = bookings.filter((r) => r.phase === "in_progress");
   // Historial: completadas y canceladas, la más reciente primero
-  const anteriores = reservas
-    .filter((r) => r.fase === "completed" || r.fase === "cancelled")
-    .sort((a, b) => b.entrada.getTime() - a.entrada.getTime());
+  const past = bookings
+    .filter((r) => r.phase === "completed" || r.phase === "cancelled")
+    .sort((a, b) => b.start.getTime() - a.start.getTime());
 
-  const TARJETAS = [
-    { valor: String(stats.total), etiqueta: "Reservas" },
-    { valor: String(stats.proximas), etiqueta: "Próximas" },
-    { valor: String(stats.horas), etiqueta: "Horas reservadas" },
-    { valor: String(stats.canceladas), etiqueta: "Canceladas" },
+  const CARDS = [
+    { value: String(stats.total), label: "Reservas" },
+    { value: String(stats.upcomingBookings), label: "Próximas" },
+    { value: String(stats.hours), label: "Horas reservadas" },
+    { value: String(stats.cancelledBookings), label: "Canceladas" },
   ];
 
   return (
     <ScrollView
-      style={styles.contenedor}
-      contentContainerStyle={styles.contenido}
+      style={styles.container}
+      contentContainerStyle={styles.content}
     >
-      <View style={styles.cabecera}>
-        <ImagePlaceholder style={styles.foto} iconSize={30} source={spot.imagen} />
-        <View style={styles.cabeceraTextos}>
-          <Text style={styles.titulo}>{spot.titulo}</Text>
-          <Text style={styles.detalle}>
-            {spot.barrio} · {spot.direccion}
+      <View style={styles.header}>
+        <ImagePlaceholder style={styles.photo} iconSize={30} source={spot.image} />
+        <View style={styles.headerTexts}>
+          <Text style={styles.title}>{spot.title}</Text>
+          <Text style={styles.detail}>
+            {spot.neighborhood} · {spot.address}
           </Text>
-          <Text style={styles.precio}>
-            {formatearPrecio(spot.precioHora)}
-            <Text style={styles.precioUnidad}> / hora</Text>
+          <Text style={styles.price}>
+            {formatPrice(spot.pricePerHour)}
+            <Text style={styles.priceUnit}> / hora</Text>
           </Text>
-          <View style={styles.calificacion}>
+          <View style={styles.rating}>
             <Ionicons name="star" size={12} color={colors.text} />
-            <Text style={styles.calificacionTexto}>
-              {spot.resenas > 0 ? spot.calificacion.toFixed(1) : "Sin calificaciones todavía"}
+            <Text style={styles.ratingText}>
+              {spot.reviewCount > 0 ? spot.rating.toFixed(1) : "Sin calificaciones todavía"}
             </Text>
           </View>
-          <Text style={[styles.estado, !spot.disponible && styles.estadoPausado]}>
-            {spot.disponible ? "Disponible" : "Pausado"}
+          <Text style={[styles.status, !spot.available && styles.statusPaused]}>
+            {spot.available ? "Disponible" : "Pausado"}
           </Text>
         </View>
       </View>
 
-      <View style={styles.botonEditar}>
+      <View style={styles.editButton}>
         <PrimaryButton
           label="Editar información"
           onPress={() =>
@@ -172,84 +172,84 @@ export function MyParkingDetailScreen({
         />
       </View>
 
-      <View style={styles.pausa}>
-        <View style={styles.pausaTextos}>
-          <Text style={styles.pausaTitulo}>Recibir reservas</Text>
-          <Text style={styles.pausaDescripcion}>
-            {spot.disponible
+      <View style={styles.pause}>
+        <View style={styles.pauseTexts}>
+          <Text style={styles.pauseTitle}>Recibir reservas</Text>
+          <Text style={styles.pauseDescription}>
+            {spot.available
               ? "Los conductores pueden reservar este parqueadero."
               : "Pausado: no recibe reservas nuevas. Las que ya tenías se mantienen."}
           </Text>
         </View>
         <Switch
-          value={spot.disponible}
-          onValueChange={alternarDisponible}
-          disabled={cambiando}
+          value={spot.available}
+          onValueChange={toggleAvailable}
+          disabled={changing}
           trackColor={{ false: colors.borderLight, true: colors.primary }}
           thumbColor={colors.white}
           // En web el círculo activo sale verde por defecto; así queda blanco también ahí.
           {...({ activeThumbColor: colors.white } as object)}
         />
       </View>
-      {errorPausa && <Text style={styles.error}>{errorPausa}</Text>}
+      {pauseError && <Text style={styles.error}>{pauseError}</Text>}
 
-      <View style={styles.ingresos}>
-        <Text style={styles.ingresosEtiqueta}>Ingresos</Text>
-        <Text style={styles.ingresosValor}>{formatearPrecio(stats.ingresos)}</Text>
-        <Text style={styles.ingresosNota}>
+      <View style={styles.earnings}>
+        <Text style={styles.earningsLabel}>Ingresos</Text>
+        <Text style={styles.earningsValue}>{formatPrice(stats.earnings)}</Text>
+        <Text style={styles.earningsNote}>
           Reservas confirmadas, incluidas las próximas
         </Text>
       </View>
 
-      <View style={styles.tarjetas}>
-        {TARJETAS.map((t) => (
-          <View key={t.etiqueta} style={styles.tarjeta}>
-            <Text style={styles.tarjetaValor}>{t.valor}</Text>
-            <Text style={styles.tarjetaEtiqueta}>{t.etiqueta}</Text>
+      <View style={styles.cards}>
+        {CARDS.map((t) => (
+          <View key={t.label} style={styles.card}>
+            <Text style={styles.cardValue}>{t.value}</Text>
+            <Text style={styles.cardLabel}>{t.label}</Text>
           </View>
         ))}
       </View>
 
-      <Text style={styles.seccion}>En este momento</Text>
-      {enCurso.length === 0 && (
-        <Text style={styles.vacio}>Nadie está usando el parqueadero ahora.</Text>
+      <Text style={styles.section}>En este momento</Text>
+      {inProgress.length === 0 && (
+        <Text style={styles.empty}>Nadie está usando el parqueadero ahora.</Text>
       )}
-      {enCurso.map((r) => (
-        <FilaReserva key={r.id} reserva={r} onCalificar={setCalificando} />
+      {inProgress.map((r) => (
+        <BookingRow key={r.id} booking={r} onRate={setReviewingBooking} />
       ))}
 
-      <Text style={styles.seccion}>Próximas reservas</Text>
-      {proximas.length === 0 && (
-        <Text style={styles.vacio}>No hay reservas próximas.</Text>
+      <Text style={styles.section}>Próximas reservas</Text>
+      {upcomingBookings.length === 0 && (
+        <Text style={styles.empty}>No hay reservas próximas.</Text>
       )}
-      {proximas.map((r) => (
-        <FilaReserva key={r.id} reserva={r} onCalificar={setCalificando} />
+      {upcomingBookings.map((r) => (
+        <BookingRow key={r.id} booking={r} onRate={setReviewingBooking} />
       ))}
 
-      <Text style={styles.seccion}>Historial</Text>
-      {anteriores.length === 0 && (
-        <Text style={styles.vacio}>Todavía no hay reservas anteriores.</Text>
+      <Text style={styles.section}>Historial</Text>
+      {past.length === 0 && (
+        <Text style={styles.empty}>Todavía no hay reservas anteriores.</Text>
       )}
-      {anteriores.map((r) => (
-        <FilaReserva key={r.id} reserva={r} onCalificar={setCalificando} />
+      {past.map((r) => (
+        <BookingRow key={r.id} booking={r} onRate={setReviewingBooking} />
       ))}
-      <Text style={styles.seccion}>Reseñas de los conductores</Text>
-      {resenas.length === 0 && (
-        <Text style={styles.vacio}>Todavía nadie ha calificado este parqueadero.</Text>
+      <Text style={styles.section}>Reseñas de los conductores</Text>
+      {reviews.length === 0 && (
+        <Text style={styles.empty}>Todavía nadie ha calificado este parqueadero.</Text>
       )}
-      {resenas.map((r) => (
-        <ReviewItem key={r.id} resena={r} />
+      {reviews.map((r) => (
+        <ReviewItem key={r.id} review={r} />
       ))}
 
       <ReviewModal
-        reservaId={calificando?.id ?? null}
-        titulo={`¿Cómo fue ${calificando?.conductor.nombre ?? ""} como conductor?`}
-        onClose={() => setCalificando(null)}
-        onRated={(id, estrellas) => {
-          setReservas((actuales) =>
-            actuales.map((r) => (r.id === id ? { ...r, miCalificacion: estrellas } : r)),
+        bookingId={reviewingBooking?.id ?? null}
+        title={`¿Cómo fue ${reviewingBooking?.driver.name ?? ""} como conductor?`}
+        onClose={() => setReviewingBooking(null)}
+        onRated={(id, stars) => {
+          setBookings((current) =>
+            current.map((r) => (r.id === id ? { ...r, myRating: stars } : r)),
           );
-          setCalificando(null);
+          setReviewingBooking(null);
         }}
       />
     </ScrollView>
@@ -258,125 +258,125 @@ export function MyParkingDetailScreen({
 
 // Una reserva: quién, cuándo, vehículo y valor.
   // Una reserva: quién (con su calificación), cuándo, vehículo y valor.
-  function FilaReserva({
-    reserva: r,
-    onCalificar,
+  function BookingRow({
+    booking: r,
+    onRate: onRate,
   }: {
-    reserva: Reserva;
-    onCalificar: (reserva: Reserva) => void;
+    booking: Booking;
+    onRate: (booking: Booking) => void;
   }) {
-  const cancelada = r.estado === "cancelled";
+  const isCancelled = r.status === "cancelled";
   return (
-    <View style={styles.fila}>
+    <View style={styles.row}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarLetra}>
-          {r.conductor.nombre.charAt(0).toUpperCase()}
+        <Text style={styles.avatarLetter}>
+          {r.driver.name.charAt(0).toUpperCase()}
         </Text>
       </View>
-      <View style={styles.filaTextos}>
-          <Text style={styles.nombre}>
-            {r.conductor.nombre}
-            {r.conductor.resenas > 0 && (
-              <Text style={styles.detalle}>
-                {"  "}★ {r.conductor.calificacion.toFixed(1)}
+      <View style={styles.rowTexts}>
+          <Text style={styles.name}>
+            {r.driver.name}
+            {r.driver.reviewCount > 0 && (
+              <Text style={styles.detail}>
+                {"  "}★ {r.driver.rating.toFixed(1)}
               </Text>
             )}
           </Text>
-        <Text style={styles.detalle}>{formatearRango(r.entrada, r.salida)}</Text>
-        <View style={styles.vehiculo}>
+        <Text style={styles.detail}>{formatRange(r.start, r.end)}</Text>
+        <View style={styles.vehicle}>
           <Feather
-            name={r.vehiculo === "carro" ? "truck" : "navigation"}
+            name={r.vehicle === "carro" ? "truck" : "navigation"}
             size={11}
             color={colors.textLight}
           />
-          <Text style={styles.detalle}>
-            {r.vehiculo === "carro" ? "Carro" : "Moto"} · {r.horas}{" "}
-            {r.horas === 1 ? "hora" : "horas"}
+          <Text style={styles.detail}>
+            {r.vehicle === "carro" ? "Carro" : "Moto"} · {r.hours}{" "}
+            {r.hours === 1 ? "hora" : "horas"}
           </Text>
         </View>
-        <BookingPhaseTag fase={r.fase} />
-        {r.fase === "in_progress" && (
-          <Text style={styles.restante}>Sale en {tiempoRestante(r.salida)}</Text>
+        <BookingPhaseTag phase={r.phase} />
+        {r.phase === "in_progress" && (
+          <Text style={styles.remaining}>Sale en {timeLeft(r.end)}</Text>
         )}
       </View>
-      {r.fase === "completed" && r.miCalificacion !== null && (
-        <View style={styles.calificada}>
-          <Text style={styles.detalle}>Calificaste</Text>
-          <Stars value={r.miCalificacion} size={11} />
+      {r.phase === "completed" && r.myRating !== null && (
+        <View style={styles.rated}>
+          <Text style={styles.detail}>Calificaste</Text>
+          <Stars value={r.myRating} size={11} />
         </View>
       )}
-      {r.fase === "completed" && r.miCalificacion === null && (
-        <Pressable onPress={() => onCalificar(r)}>
-          <Text style={styles.accion}>Calificar conductor</Text>
+      {r.phase === "completed" && r.myRating === null && (
+        <Pressable onPress={() => onRate(r)}>
+          <Text style={styles.action}>Calificar conductor</Text>
         </Pressable>
       )}
-      <Text style={[styles.valor, cancelada && styles.valorTachado]}>
-        {formatearPrecio(r.total)}
+      <Text style={[styles.value, isCancelled && styles.valueStrikethrough]}>
+        {formatPrice(r.total)}
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  contenido: {
+  content: {
     padding: 18,
     paddingBottom: spacing.xl,
   },
-  centro: {
+  center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.background,
   },
-  cabecera: {
+  header: {
     flexDirection: "row",
     gap: 14,
   },
-  foto: {
+  photo: {
     width: 96,
     height: 96,
     borderRadius: radius.md,
   },
-  cabeceraTextos: {
+  headerTexts: {
     flex: 1,
   },
-  titulo: {
+  title: {
     fontSize: 18,
     fontWeight: "700",
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 3,
   },
-  precio: {
+  price: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
     marginTop: 6,
   },
-  precioUnidad: {
+  priceUnit: {
     fontSize: 12,
     fontWeight: "400",
   },
-  estado: {
+  status: {
     fontSize: 12,
     fontWeight: "600",
     color: "#2E7D32",
     marginTop: spacing.xs,
   },
-  estadoPausado: {
+  statusPaused: {
     color: colors.textLight,
   },
-    botonEditar: {
+    editButton: {
     marginTop: spacing.md,
   },
-  pausa: {
+  pause: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
@@ -386,15 +386,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  pausaTextos: {
+  pauseTexts: {
     flex: 1,
   },
-  pausaTitulo: {
+  pauseTitle: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
   },
-  pausaDescripcion: {
+  pauseDescription: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 2,
@@ -404,34 +404,34 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: spacing.sm,
   },
-  ingresos: {
+  earnings: {
     marginTop: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
     backgroundColor: colors.chip,
   },
-  ingresosEtiqueta: {
+  earningsLabel: {
     fontSize: 12,
     color: colors.textLight,
   },
-  ingresosValor: {
+  earningsValue: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.text,
     marginTop: 2,
   },
-  ingresosNota: {
+  earningsNote: {
     fontSize: 11,
     color: colors.textLight,
     marginTop: 2,
   },
-  tarjetas: {
+  cards: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  tarjeta: {
+  card: {
     // Dos tarjetas por fila, descontando el espacio entre ellas
     flexBasis: "48%",
     flexGrow: 1,
@@ -440,28 +440,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  tarjetaValor: {
+  cardValue: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
   },
-  tarjetaEtiqueta: {
+  cardLabel: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 2,
   },
-  seccion: {
+  section: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
-  vacio: {
+  empty: {
     fontSize: 12,
     color: colors.textLight,
   },
-  fila: {
+  row: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
@@ -477,56 +477,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarLetra: {
+  avatarLetter: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
   },
-  filaTextos: {
+  rowTexts: {
     flex: 1,
   },
-  nombre: {
+  name: {
     fontSize: 13,
     fontWeight: "600",
     color: colors.text,
   },
-  vehiculo: {
+  vehicle: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  restante: {
+  remaining: {
     fontSize: 11,
     fontWeight: "600",
     color: "#2E7D32",
     marginTop: 3,
   },
-  valor: {
+  value: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.text,
   },
-  valorTachado: {
+  valueStrikethrough: {
     color: colors.textLight,
     textDecorationLine: "line-through",
   },
-  calificacion: {
+  rating: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginTop: 4,
   },
-  calificacionTexto: {
+  ratingText: {
     fontSize: 12,
     color: colors.text,
   },
-  calificada: {
+  rated: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: spacing.xs,
   },
-  accion: {
+  action: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.primary,

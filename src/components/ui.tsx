@@ -25,19 +25,19 @@ export function BrandIcon({ size = 40 }: { size?: number }) {
 
 // Campo de texto de las pantallas de acceso. Al enfocarse el borde se oscurece.
 export function Field({ style, onFocus, onBlur, ...props }: TextInputProps) {
-  const [enfocado, setEnfocado] = useState(false);
+  const [focused, setFocused] = useState(false);
   return (
     <TextInput
       placeholderTextColor={colors.placeholder}
       autoCapitalize="none"
       {...props}
-      style={[styles.field, enfocado && styles.fieldEnfocado, style]}
+      style={[styles.field, focused && styles.fieldFocused, style]}
       onFocus={(e) => {
-        setEnfocado(true);
+        setFocused(true);
         onFocus?.(e);
       }}
       onBlur={(e) => {
-        setEnfocado(false);
+        setFocused(false);
         onBlur?.(e);
       }}
     />
@@ -55,11 +55,11 @@ export function PrimaryButton({
 }) {
   return (
     <Pressable
-      style={[styles.boton, disabled && styles.botonDeshabilitado]}
+      style={[styles.button, disabled && styles.buttonDisabled]}
       onPress={onPress}
       disabled={disabled}
     >
-      <Text style={styles.botonTexto}>{label}</Text>
+      <Text style={styles.buttonText}>{label}</Text>
     </Pressable>
   );
 }
@@ -67,10 +67,10 @@ export function PrimaryButton({
 // Línea con una "o" en el centro.
 export function OrDivider() {
   return (
-    <View style={styles.divisor}>
-      <View style={styles.linea} />
-      <Text style={styles.divisorTexto}>o</Text>
-      <View style={styles.linea} />
+    <View style={styles.divider}>
+      <View style={styles.line} />
+      <Text style={styles.dividerText}>o</Text>
+      <View style={styles.line} />
     </View>
   );
 }
@@ -78,7 +78,7 @@ export function OrDivider() {
 // Botones de Facebook y Twitter (por ahora sin acción).
 export function SocialButtons() {
   return (
-    <View style={styles.sociales}>
+    <View style={styles.socials}>
       <Pressable style={styles.social}>
         <Feather name="facebook" size={16} color="#9A9A9A" />
       </Pressable>
@@ -116,7 +116,7 @@ export function CircleButton({
   onPress?: () => void;
 }) {
   return (
-    <Pressable style={styles.circulo} onPress={onPress}>
+    <Pressable style={styles.circle} onPress={onPress}>
       <Feather name={icon} size={17} color={colors.text} />
     </Pressable>
   );
@@ -146,8 +146,8 @@ export function Chip({
       style={[
         styles.chip,
         variant === "outline" ? styles.chipOutline : styles.chipFilled,
-        selected && styles.chipActivo,
-        disabled && styles.chipDeshabilitado,
+        selected && styles.chipActive,
+        disabled && styles.chipDisabled,
       ]}
     >
       {icon && (
@@ -159,9 +159,9 @@ export function Chip({
       )}
       <Text
         style={[
-          styles.chipTexto,
-          selected && styles.chipTextoActivo,
-          disabled && styles.chipTextoDeshabilitado,
+          styles.chipText,
+          selected && styles.chipTextActive,
+          disabled && styles.chipTextDisabled,
         ]}
       >
         {label}
@@ -251,11 +251,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginBottom: spacing.sm,
   },
-  fieldEnfocado: {
+  fieldFocused: {
     borderColor: colors.black,
     borderWidth: 1.5,
   },
-  boton: {
+  button: {
     width: "100%",
     height: 42,
     backgroundColor: colors.primary,
@@ -263,31 +263,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  botonDeshabilitado: {
+  buttonDisabled: {
     opacity: 0.5,
   },
-  botonTexto: {
+  buttonText: {
     color: colors.white,
     fontSize: 13,
     fontWeight: "500",
   },
-  divisor: {
+  divider: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
     marginVertical: spacing.md,
   },
-  linea: {
+  line: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.borderLight,
   },
-  divisorTexto: {
+  dividerText: {
     marginHorizontal: spacing.sm,
     fontSize: 11,
     color: colors.text,
   },
-  sociales: {
+  socials: {
     flexDirection: "row",
     gap: 14,
     marginTop: spacing.md,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  circulo: {
+  circle: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -325,23 +325,23 @@ const styles = StyleSheet.create({
   chipFilled: {
     backgroundColor: colors.chip,
   },
-  chipActivo: {
+  chipActive: {
     backgroundColor: colors.black,
     borderColor: colors.black,
   },
-  chipTexto: {
+  chipText: {
     fontSize: 12,
     fontWeight: "500",
     color: colors.text,
   },
-  chipTextoActivo: {
+  chipTextActive: {
     color: colors.white,
   },
-  chipDeshabilitado: {
+  chipDisabled: {
     backgroundColor: colors.chip,
     borderColor: colors.chip,
   },
-  chipTextoDeshabilitado: {
+  chipTextDisabled: {
     color: colors.border,
     textDecorationLine: "line-through",
   },

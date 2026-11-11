@@ -5,112 +5,112 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { apiRequest, registrarAlRechazarToken } from "../services/api";
-import { borrarSesion, guardarSesion, leerSesion } from "../services/session";
+import { apiRequest, registerOnTokenRejected } from "../services/api";
+import { clearSession, saveSession, readSession } from "../services/session";
 
-export type Rol = "conductor" | "propietario";
+export type Role = "conductor" | "propietario";
 
-export interface Usuario {
+export interface User {
   id: number;
   name: string;
   email: string;
-  role: Rol;
+  role: Role;
   // URL de la foto de perfil; si no tiene, la app muestra el ícono de persona
   avatarUrl?: string | null;
 }
 
-interface DatosRegistro {
+interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role: Rol;
+  role: Role;
 }
 
 interface AuthContextValue {
-  usuario: Usuario | null;
+  user: User | null;
   token: string | null;
   // true mientras se lee la sesión guardada al abrir la app
-  cargando: boolean;
-  iniciarSesion: (email: string, password: string) => Promise<void>;
-  registrar: (datos: DatosRegistro) => Promise<void>;
-  actualizarUsuario: (usuario: Usuario) => Promise<void>;
-  cerrarSesion: () => void;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
+  logout: () => void;
 }
 
 interface LoginResponse {
-  user: Usuario;
+  user: User;
   token: string;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const cerrarSesion = () => {
-    setUsuario(null);
+  const logout = () => {
+    setUser(null);
     setToken(null);
-    borrarSesion();
+    clearSession();
   };
 
   // Al abrir la app: recuperar la sesión guardada, si existe y no ha vencido.
   useEffect(() => {
-    leerSesion()
-      .then((sesion) => {
-        if (sesion) {
-          setUsuario(sesion.usuario);
-          setToken(sesion.token);
+    readSession()
+      .then((session) => {
+        if (session) {
+          setUser(session.user);
+          setToken(session.token);
         }
       })
-      .finally(() => setCargando(false));
+      .finally(() => setLoading(false));
 
     // Si el backend rechaza el token en cualquier pantalla, se cierra la sesión.
-    registrarAlRechazarToken(cerrarSesion);
-    return () => registrarAlRechazarToken(null);
+    registerOnTokenRejected(logout);
+    return () => registerOnTokenRejected(null);
   }, []);
 
-  const iniciarSesion = async (email: string, password: string) => {
-    const respuesta = await apiRequest<LoginResponse>("/users/login", {
+  const login = async (email: string, password: string) => {
+    const response = await apiRequest<LoginResponse>("/users/login", {
       method: "POST",
       body: { email, password },
     });
 
-    setUsuario(respuesta.user);
-    setToken(respuesta.token);
-    await guardarSesion({ usuario: respuesta.user, token: respuesta.token });
+    setUser(response.user);
+    setToken(response.token);
+    await saveSession({ user: response.user, token: response.token });
   };
 
   // El registro no devuelve token, así que al terminar iniciamos sesión con los mismos datos.
-  const registrar = async (datos: DatosRegistro) => {
-    await apiRequest<Usuario>("/users/register", {
+  const register = async (data: RegisterData) => {
+    await apiRequest<User>("/users/register", {
       method: "POST",
-      body: datos,
+      body: data,
     });
 
-    await iniciarSesion(datos.email, datos.password);
+    await login(data.email, data.password);
   };
 
   // Actualiza los datos del usuario (por ejemplo, su foto) y los guarda en la sesión
-  const actualizarUsuario = async (nuevo: Usuario) => {
-    setUsuario(nuevo);
+  const updateUser = async (created: User) => {
+    setUser(created);
 
     if (token) {
-      await guardarSesion({ usuario: nuevo, token });
+      await saveSession({ user: created, token });
     }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        usuario,
+        user,
         token,
-        cargando,
-        iniciarSesion,
-        registrar,
-        actualizarUsuario,
-        cerrarSesion,
+        loading,
+        login,
+        register,
+        updateUser,
+        logout,
       }}
     >
       {children}
@@ -119,11 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth(): AuthContextValue {
-  const contexto = useContext(AuthContext);
+  const context = useContext(AuthContext);
 
-  if (!contexto) {
+  if (!context) {
     throw new Error("useAuth debe usarse dentro de un AuthProvider");
   }
 
-  return contexto;
+  return context;
 }

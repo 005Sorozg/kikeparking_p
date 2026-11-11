@@ -12,92 +12,92 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StarPicker } from "./Stars";
 import { PrimaryButton } from "./ui";
-import { calificarReserva } from "../services/reviews";
+import { rateBooking } from "../services/reviews";
 import { useAuth } from "../context/AuthContext";
 import { colors, radius, spacing } from "../styles/theme";
 
-const MAX_COMENTARIO = 500;
-const TEXTO_ESTRELLAS = ["", "Muy mala", "Mala", "Regular", "Buena", "Excelente"];
+const MAX_COMMENT = 500;
+const STAR_LABELS = ["", "Muy mala", "Mala", "Regular", "Buena", "Excelente"];
 
 // Ventana para calificar una reserva completada.
 // "titulo" cambia según quién califica: el parqueadero o al conductor.
 export function ReviewModal({
-  reservaId,
-  titulo,
+  bookingId: bookingId,
+  title: title,
   onClose,
   onRated,
 }: {
   // null = ventana cerrada
-  reservaId: number | null;
-  titulo: string;
+  bookingId: number | null;
+  title: string;
   onClose: () => void;
-  onRated: (reservaId: number, estrellas: number) => void;
+  onRated: (bookingId: number, stars: number) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
-  const [estrellas, setEstrellas] = useState(0);
-  const [comentario, setComentario] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState("");
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Cada vez que se abre para otra reserva, empieza en blanco
   useEffect(() => {
-    setEstrellas(0);
-    setComentario("");
+    setStars(0);
+    setComment("");
     setError(null);
-  }, [reservaId]);
+  }, [bookingId]);
 
-  const enviar = async () => {
-    if (reservaId === null || !token || estrellas === 0) return;
+  const send = async () => {
+    if (bookingId === null || !token || stars === 0) return;
 
-    setEnviando(true);
+    setSending(true);
     setError(null);
     try {
-      await calificarReserva(reservaId, estrellas, comentario, token);
-      onRated(reservaId, estrellas);
+      await rateBooking(bookingId, stars, comment, token);
+      onRated(bookingId, stars);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo enviar la calificación.");
     } finally {
-      setEnviando(false);
+      setSending(false);
     }
   };
 
   return (
-    <Modal visible={reservaId !== null} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={bookingId !== null} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={styles.fondo}
+        style={styles.backdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={styles.fuera} onPress={onClose} />
-        <View style={[styles.hoja, { paddingBottom: insets.bottom + spacing.md }]}>
-          <Text style={styles.titulo}>{titulo}</Text>
+        <Pressable style={styles.outside} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }]}>
+          <Text style={styles.title}>{title}</Text>
 
-          <StarPicker value={estrellas} onChange={setEstrellas} />
-          <Text style={styles.etiqueta}>{TEXTO_ESTRELLAS[estrellas] || "Toca las estrellas"}</Text>
+          <StarPicker value={stars} onChange={setStars} />
+          <Text style={styles.label}>{STAR_LABELS[stars] || "Toca las estrellas"}</Text>
 
           <TextInput
-            style={styles.campo}
-            value={comentario}
-            onChangeText={setComentario}
+            style={styles.field}
+            value={comment}
+            onChangeText={setComment}
             placeholder="Cuéntanos cómo te fue (opcional)"
             placeholderTextColor={colors.placeholder}
             multiline
-            maxLength={MAX_COMENTARIO}
+            maxLength={MAX_COMMENT}
           />
-          <Text style={styles.contador}>
-            {comentario.length}/{MAX_COMENTARIO}
+          <Text style={styles.counter}>
+            {comment.length}/{MAX_COMMENT}
           </Text>
 
-          <Text style={styles.aviso}>Las calificaciones no se pueden editar después.</Text>
+          <Text style={styles.notice}>Las calificaciones no se pueden editar después.</Text>
           {error && <Text style={styles.error}>{error}</Text>}
 
           <PrimaryButton
-            label={enviando ? "Enviando..." : "Enviar calificación"}
-            onPress={enviar}
-            disabled={enviando || estrellas === 0}
+            label={sending ? "Enviando..." : "Enviar calificación"}
+            onPress={send}
+            disabled={sending || stars === 0}
           />
-          <Pressable style={styles.cancelar} onPress={onClose}>
-            <Text style={styles.cancelarTexto}>Ahora no</Text>
+          <Pressable style={styles.cancel} onPress={onClose}>
+            <Text style={styles.cancelText}>Ahora no</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -106,36 +106,36 @@ export function ReviewModal({
 }
 
 const styles = StyleSheet.create({
-  fondo: {
+  backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
     justifyContent: "flex-end",
   },
-  fuera: {
+  outside: {
     flex: 1,
   },
-  hoja: {
+  sheet: {
     backgroundColor: colors.white,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     paddingHorizontal: 24,
     paddingTop: spacing.lg,
   },
-  titulo: {
+  title: {
     fontSize: 17,
     fontWeight: "700",
     color: colors.text,
     textAlign: "center",
     marginBottom: spacing.md,
   },
-  etiqueta: {
+  label: {
     fontSize: 13,
     color: colors.textLight,
     textAlign: "center",
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
-  campo: {
+  field: {
     minHeight: 90,
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -145,13 +145,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlignVertical: "top",
   },
-  contador: {
+  counter: {
     fontSize: 11,
     color: colors.textLight,
     textAlign: "right",
     marginTop: 4,
   },
-  aviso: {
+  notice: {
     fontSize: 11,
     color: colors.textLight,
     marginVertical: spacing.sm,
@@ -161,11 +161,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: spacing.sm,
   },
-  cancelar: {
+  cancel: {
     alignItems: "center",
     paddingVertical: spacing.md,
   },
-  cancelarTexto: {
+  cancelText: {
     fontSize: 14,
     color: colors.textLight,
   },

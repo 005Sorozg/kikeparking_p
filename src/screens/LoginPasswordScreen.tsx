@@ -17,59 +17,59 @@ export function LoginPasswordScreen({
   navigation,
   route,
 }: AppScreenProps<"LoginPassword">) {
-  const { iniciarSesion } = useAuth();
-  const [identificador, setIdentificador] = useState(route.params.identifier);
-  const [clave, setClave] = useState("");
+  const { login: login } = useAuth();
+  const [identifier, setIdentifier] = useState(route.params.identifier);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const continuar = async () => {
-    const correo = identificador.trim();
+  const handleContinue = async () => {
+    const email = identifier.trim();
 
     // El backend solo identifica usuarios por correo.
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Por ahora solo puedes iniciar sesión con tu correo electrónico.");
       return;
     }
-    if (clave.length < 6) {
+    if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
 
     setError(null);
-    setCargando(true);
+    setLoading(true);
 
     try {
-      await iniciarSesion(correo, clave);
+      await login(email, password);
       // reset: así el botón "atrás" no vuelve al login.
       navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo iniciar sesión.");
     } finally {
-      setCargando(false);
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.contenedor}>
+    <View style={styles.container}>
       <BackButton onPress={() => navigation.goBack()} />
 
       <KeyboardAvoidingView
-        style={styles.centro}
+        style={styles.center}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <BrandIcon size={40} />
-        <Text style={styles.titulo}>Inicia sesión</Text>
+        <Text style={styles.title}>Inicia sesión</Text>
 
         <Field
-          value={identificador}
-          onChangeText={setIdentificador}
+          value={identifier}
+          onChangeText={setIdentifier}
           placeholder="Correo electrónico"
           keyboardType="email-address"
         />
         <Field
-          value={clave}
-          onChangeText={setClave}
+          value={password}
+          onChangeText={setPassword}
           placeholder="Contraseña"
           secureTextEntry
         />
@@ -77,13 +77,13 @@ export function LoginPasswordScreen({
         {error && <Text style={styles.error}>{error}</Text>}
 
         <PrimaryButton
-          label={cargando ? "Entrando..." : "Continuar"}
-          onPress={continuar}
-          disabled={cargando}
+          label={loading ? "Entrando..." : "Continuar"}
+          onPress={handleContinue}
+          disabled={loading}
         />
 
-        <Pressable style={styles.enlaceWrap}>
-          <Text style={styles.enlace}>Olvidé la contraseña</Text>
+        <Pressable style={styles.linkWrap}>
+          <Text style={styles.link}>Olvidé la contraseña</Text>
         </Pressable>
       </KeyboardAvoidingView>
     </View>
@@ -91,18 +91,18 @@ export function LoginPasswordScreen({
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  centro: {
+  center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 28,
     paddingBottom: 60,
   },
-  titulo: {
+  title: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
@@ -115,10 +115,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: spacing.sm,
   },
-  enlaceWrap: {
+  linkWrap: {
     marginTop: spacing.md,
   },
-  enlace: {
+  link: {
     fontSize: 12,
     color: colors.text,
     textDecorationLine: "underline",

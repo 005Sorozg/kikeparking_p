@@ -15,62 +15,62 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MainTabScreenProps } from "../types/navigation";
 import {
-  Parqueadero,
-  formatearPrecio,
-  obtenerParqueaderos,
+  ParkingSpot,
+  formatPrice,
+  getParkingSpots,
 } from "../services/parking";
 import { Chip, ImagePlaceholder } from "../components/ui";
-import { useFavoritos } from "../context/FavoritesContext";
-import { FiltersModal, FiltrosExtra, contarFiltros } from "../components/FiltersModal";
+import { useFavorites } from "../context/FavoritesContext";
+import { FiltersModal, ExtraFilters, countFilters } from "../components/FiltersModal";
 import { ExploreMap } from "../components/ExploreMap";
 import { colors, radius, shadow, spacing } from "../styles/theme";
 
-type Orden = "rating" | "price" | null;
+type SortOrder = "rating" | "price" | null;
 
 // Inicio - Explorar: buscador, filtros y tarjetas de parqueaderos que vienen del backend.
 export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const insets = useSafeAreaInsets();
-  const [busqueda, setBusqueda] = useState("");
-  const [soloDisponibles, setSoloDisponibles] = useState(false);
-  const [orden, setOrden] = useState<Orden>(null);
+  const [search, setSearch] = useState("");
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [sort, setSort] = useState<SortOrder>(null);
   // Filtros de la ventana "Filtrar" (vehículo, techado, vigilancia...)
-  const [filtrosExtra, setFiltrosExtra] = useState<FiltrosExtra>({});
-  const [verFiltros, setVerFiltros] = useState(false);
-  const cantidadFiltros = contarFiltros(filtrosExtra);
+  const [extraFilters, setExtraFilters] = useState<ExtraFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const filterCount = countFilters(extraFilters);
   // Lista o mapa (el mapa solo existe en el celular)
-  const [verMapa, setVerMapa] = useState(false);
-  const hayMapa = Platform.OS !== "web";
+  const [showMap, setShowMap] = useState(false);
+  const hasMap = Platform.OS !== "web";
   // Los mismos filtros de la lista, para el mapa. useMemo evita que el mapa
   // vuelva a pedir datos cada vez que esta pantalla se redibuja.
-  const filtrosMapa = useMemo(
-    () => ({ busqueda, soloDisponibles, ...filtrosExtra }),
-    [busqueda, soloDisponibles, filtrosExtra],
+  const mapFilters = useMemo(
+    () => ({ search, onlyAvailable, ...extraFilters }),
+    [search, onlyAvailable, extraFilters],
   );
-  const [parqueaderos, setParqueaderos] = useState<Parqueadero[]>([]);
-  const [cargando, setCargando] = useState(true);
+  const [mockParkingSpots, setMockParkingSpots] = useState<ParkingSpot[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Favoritos compartidos con el detalle y la pestaña Favoritos (vienen del backend).
-  const { esFavorito, alternarFavorito } = useFavoritos();
+  const { isFavorite: isFavorite, toggleFavorite: toggleFavorite } = useFavorites();
 
   // Se ejecuta al abrir la pantalla, al volver a ella (ej: después de publicar un
   // parqueadero) y cada vez que cambia un filtro. El retraso de 300 ms evita
   // llamar al backend con cada letra que se escribe.
   useFocusEffect(
     useCallback(() => {
-      let activo = true;
+      let active = true;
 
-      const temporizador = setTimeout(async () => {
+      const timer = setTimeout(async () => {
         try {
           setError(null);
-          const datos = await obtenerParqueaderos({
-            busqueda,
-            soloDisponibles,
-            orden: orden ?? undefined,
-            ...filtrosExtra,
+          const data = await getParkingSpots({
+            search,
+            onlyAvailable,
+            sort: sort ?? undefined,
+            ...extraFilters,
           });
-          if (activo) setParqueaderos(datos);
+          if (active) setMockParkingSpots(data);
         } catch (e) {
-          if (activo) {
+          if (active) {
             setError(
               e instanceof Error
                 ? e.message
@@ -78,138 +78,138 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
             );
           }
         } finally {
-          if (activo) setCargando(false);
+          if (active) setLoading(false);
         }
       }, 300);
 
       return () => {
-        activo = false;
-        clearTimeout(temporizador);
+        active = false;
+        clearTimeout(timer);
       };
-    }, [busqueda, soloDisponibles, orden, filtrosExtra]),
+    }, [search, onlyAvailable, sort, extraFilters]),
   );
 
-  const alternarOrden = (valor: "rating" | "price") =>
-    setOrden((actual) => (actual === valor ? null : valor));
+  const toggleSort = (value: "rating" | "price") =>
+    setSort((current) => (current === value ? null : value));
 
   return (
-    <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
-      <View style={styles.buscador}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
+      <View style={styles.searchBar}>
         <Feather name="search" size={16} color={colors.text} />
-        <View style={styles.buscadorTextos}>
-          <Text style={styles.buscadorTitulo}>¿Dónde necesitas estacionar?</Text>
+        <View style={styles.searchBarTexts}>
+          <Text style={styles.searchBarTitle}>¿Dónde necesitas estacionar?</Text>
           <TextInput
-            style={styles.buscadorInput}
-            value={busqueda}
-            onChangeText={setBusqueda}
+            style={styles.searchBarInput}
+            value={search}
+            onChangeText={setSearch}
             placeholder="Buscar por barrio o nombre"
             placeholderTextColor={colors.textLight}
           />
         </View>
       </View>
 
-      <View style={styles.filtrosBorde}>
+      <View style={styles.filtersBorder}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtros}
+          contentContainerStyle={styles.filters}
         >
           <Chip
-            label={cantidadFiltros > 0 ? `Filtrar (${cantidadFiltros})` : "Filtrar"}
+            label={filterCount > 0 ? `Filtrar (${filterCount})` : "Filtrar"}
             icon="filter"
-            selected={cantidadFiltros > 0}
-            onPress={() => setVerFiltros(true)}
+            selected={filterCount > 0}
+            onPress={() => setShowFilters(true)}
           />
           <Chip
             label="Solo disponibles"
-            selected={soloDisponibles}
-            onPress={() => setSoloDisponibles((v) => !v)}
+            selected={onlyAvailable}
+            onPress={() => setOnlyAvailable((v) => !v)}
           />
           <Chip
             label="Mejor calificados"
-            selected={orden === "rating"}
-            onPress={() => alternarOrden("rating")}
+            selected={sort === "rating"}
+            onPress={() => toggleSort("rating")}
           />
           <Chip
             label="Menor precio"
-            selected={orden === "price"}
-            onPress={() => alternarOrden("price")}
+            selected={sort === "price"}
+            onPress={() => toggleSort("price")}
           />
         </ScrollView>
       </View>
 
-      {verMapa ? (
+      {showMap ? (
         <ExploreMap
-          filtros={filtrosMapa}
-          onAbrir={(id) => navigation.navigate("ParkingDetail", { parkingSpotId: id })}
+          filters={mapFilters}
+          onOpen={(id) => navigation.navigate("ParkingDetail", { parkingSpotId: id })}
         />
       ) : (
 
       <FlatList
-        data={parqueaderos}
+        data={mockParkingSpots}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.lista}
+        contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
         renderItem={({ item }) => {
-          const favorito = esFavorito(item.id);
+          const favorite = isFavorite(item.id);
           return (
             <Pressable
-              style={styles.tarjeta}
+              style={styles.card}
               onPress={() =>
                 navigation.navigate("ParkingDetail", { parkingSpotId: item.id })
               }
             >
-              <View style={styles.fotoContenedor}>
+              <View style={styles.photoContainer}>
                 <ImagePlaceholder
-                  style={styles.foto}
+                  style={styles.photo}
                   iconSize={96}
-                  source={item.imagen}
+                  source={item.image}
                 />
                 <Pressable
-                  style={styles.corazon}
+                  style={styles.heart}
                   hitSlop={8}
-                  onPress={() => alternarFavorito(item)}
+                  onPress={() => toggleFavorite(item)}
                 >
                   <Ionicons
-                    name={favorito ? "heart" : "heart-outline"}
+                    name={favorite ? "heart" : "heart-outline"}
                     size={16}
-                    color={favorito ? colors.primary : "#B5B5B5"}
+                    color={favorite ? colors.primary : "#B5B5B5"}
                   />
                 </Pressable>
               </View>
 
               <View style={styles.info}>
-                <View style={styles.filaTitulo}>
-                  <Text style={styles.titulo} numberOfLines={1}>
-                    {item.titulo}
+                <View style={styles.rowTitle}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {item.title}
                   </Text>
-                  <View style={styles.calificacion}>
+                  <View style={styles.rating}>
                     <Ionicons name="star" size={14} color={colors.black} />
-                    <Text style={styles.calificacionTexto}>
-                       {item.resenas > 0 ? item.calificacion.toFixed(1) : "Nuevo"}
+                    <Text style={styles.ratingText}>
+                       {item.reviewCount > 0 ? item.rating.toFixed(1) : "Nuevo"}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.detalle}>{item.barrio}</Text>
-                <Text style={styles.detalle}>{item.direccion}</Text>
-                <Text style={styles.precio}>
-                  {formatearPrecio(item.precioHora)}
-                  <Text style={styles.precioUnidad}> / hora</Text>
+                <Text style={styles.detail}>{item.neighborhood}</Text>
+                <Text style={styles.detail}>{item.address}</Text>
+                <Text style={styles.price}>
+                  {formatPrice(item.pricePerHour)}
+                  <Text style={styles.priceUnit}> / hora</Text>
                 </Text>
               </View>
             </Pressable>
           );
         }}
         ListEmptyComponent={
-          cargando ? (
+          loading ? (
             <ActivityIndicator
               style={{ marginTop: spacing.xl }}
               color={colors.primary}
             />
           ) : (
-            <Text style={styles.vacio}>
+            <Text style={styles.empty}>
               {error ??
-                (cantidadFiltros > 0
+                (filterCount > 0
                   ? "Ningún parqueadero cumple esos filtros."
                   : "No encontramos parqueaderos con esa búsqueda.")}
             </Text>
@@ -219,20 +219,20 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
       )}
 
       {/* Botón flotante para cambiar entre lista y mapa */}
-      {hayMapa && (
-        <Pressable style={styles.botonModo} onPress={() => setVerMapa((v) => !v)}>
-          <Text style={styles.botonModoTexto}>{verMapa ? "Lista" : "Mapa"}</Text>
-          <Feather name={verMapa ? "list" : "map"} size={15} color={colors.white} />
+      {hasMap && (
+        <Pressable style={styles.modeButton} onPress={() => setShowMap((v) => !v)}>
+          <Text style={styles.modeButtonText}>{showMap ? "Lista" : "Mapa"}</Text>
+          <Feather name={showMap ? "list" : "map"} size={15} color={colors.white} />
         </Pressable>
       )}
 
       <FiltersModal
-        visible={verFiltros}
-        filtros={filtrosExtra}
-        onCerrar={() => setVerFiltros(false)}
-        onAplicar={(nuevos) => {
-          setFiltrosExtra(nuevos);
-          setVerFiltros(false);
+        visible={showFilters}
+        filters={extraFilters}
+        onClose={() => setShowFilters(false)}
+        onApply={(newItems) => {
+          setExtraFilters(newItems);
+          setShowFilters(false);
         }}
       />
     </View>
@@ -240,11 +240,11 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  buscador: {
+  searchBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -257,36 +257,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
-  buscadorTextos: {
+  searchBarTexts: {
     flex: 1,
   },
-  buscadorTitulo: {
+  searchBarTitle: {
     fontSize: 13,
     fontWeight: "600",
     color: colors.text,
   },
-  buscadorInput: {
+  searchBarInput: {
     height: 16,
     padding: 0,
     fontSize: 11,
     color: colors.text,
   },
-  filtrosBorde: {
+  filtersBorder: {
     marginTop: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  filtros: {
+  filters: {
     paddingHorizontal: 18,
     paddingBottom: spacing.md,
     gap: spacing.sm,
   },
-  lista: {
+  list: {
     padding: 18,
     // Espacio extra abajo para que el botón "Mapa" no tape la última tarjeta
     paddingBottom: 90,
   },
-  botonModo: {
+  modeButton: {
     position: "absolute",
     bottom: 20,
     alignSelf: "center",
@@ -299,24 +299,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.text,
     ...shadow,
   },
-  botonModoTexto: {
+  modeButtonText: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.white,
   },
-  tarjeta: {
+  card: {
     width: "100%",
   },
-  fotoContenedor: {
+  photoContainer: {
     width: "100%",
     aspectRatio: 1,
   },
-  foto: {
+  photo: {
     width: "100%",
     height: "100%",
     borderRadius: radius.lg,
   },
-  corazon: {
+  heart: {
     position: "absolute",
     top: 12,
     right: 12,
@@ -331,43 +331,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingTop: spacing.sm,
   },
-  filaTitulo: {
+  rowTitle: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  titulo: {
+  title: {
     flex: 1,
     fontSize: 14,
     fontWeight: "500",
     color: colors.text,
   },
-  calificacion: {
+  rating: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginLeft: spacing.sm,
   },
-  calificacionTexto: {
+  ratingText: {
     fontSize: 12,
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 3,
   },
-  precio: {
+  price: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
     marginTop: 6,
   },
-  precioUnidad: {
+  priceUnit: {
     fontSize: 12,
     fontWeight: "400",
   },
-  vacio: {
+  empty: {
     textAlign: "center",
     color: colors.textLight,
     marginTop: spacing.xl,

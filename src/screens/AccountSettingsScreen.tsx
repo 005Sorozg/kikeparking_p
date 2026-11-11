@@ -8,173 +8,173 @@ import {
 } from "react-native";
 import { Field, PrimaryButton } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { actualizarPerfil, cambiarPassword } from "../services/profile";
+import { updateProfile, changePassword } from "../services/profile";
 import { colors, spacing } from "../styles/theme";
 
 // Configuración de la cuenta (conductor y propietario): editar nombre y correo
 // y cambiar la contraseña.
 export function AccountSettingsScreen() {
-  const { usuario, token, actualizarUsuario } = useAuth();
+  const { user: user, token, updateUser: updateUser } = useAuth();
 
   // Datos personales
-  const [nombre, setNombre] = useState(usuario?.name ?? "");
-  const [correo, setCorreo] = useState(usuario?.email ?? "");
-  const [guardandoDatos, setGuardandoDatos] = useState(false);
-  const [errorDatos, setErrorDatos] = useState<string | null>(null);
-  const [okDatos, setOkDatos] = useState<string | null>(null);
+  const [name, setName] = useState(user?.name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [savingData, setSavingData] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [dataOk, setDataOk] = useState<string | null>(null);
 
   // Contraseña
-  const [claveActual, setClaveActual] = useState("");
-  const [claveNueva, setClaveNueva] = useState("");
-  const [claveRepetida, setClaveRepetida] = useState("");
-  const [guardandoClave, setGuardandoClave] = useState(false);
-  const [errorClave, setErrorClave] = useState<string | null>(null);
-  const [okClave, setOkClave] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [repeatedPassword, setRepeatedPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordOk, setPasswordOk] = useState<string | null>(null);
 
-  const guardarDatos = async () => {
-    if (!token || !usuario) return;
+  const saveData = async () => {
+    if (!token || !user) return;
 
-    setErrorDatos(null);
-    setOkDatos(null);
+    setDataError(null);
+    setDataOk(null);
 
-    if (nombre.trim().length < 3) {
-      setErrorDatos("Escribe tu nombre completo.");
+    if (name.trim().length < 3) {
+      setDataError("Escribe tu nombre completo.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())) {
-      setErrorDatos("Escribe un correo válido.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setDataError("Escribe un correo válido.");
       return;
     }
 
     // Solo se envía lo que cambió
-    const cambios: { name?: string; email?: string } = {};
-    if (nombre.trim() !== usuario.name) cambios.name = nombre.trim();
-    if (correo.trim().toLowerCase() !== usuario.email) {
-      cambios.email = correo.trim();
+    const changes: { name?: string; email?: string } = {};
+    if (name.trim() !== user.name) changes.name = name.trim();
+    if (email.trim().toLowerCase() !== user.email) {
+      changes.email = email.trim();
     }
 
-    if (Object.keys(cambios).length === 0) {
-      setOkDatos("No hay cambios por guardar.");
+    if (Object.keys(changes).length === 0) {
+      setDataOk("No hay cambios por guardar.");
       return;
     }
 
-    setGuardandoDatos(true);
+    setSavingData(true);
 
     try {
-      const actualizado = await actualizarPerfil(cambios, token);
+      const updated = await updateProfile(changes, token);
       // Guarda el usuario nuevo en la sesión para que toda la app lo vea
-      await actualizarUsuario(actualizado);
-      setNombre(actualizado.name);
-      setCorreo(actualizado.email);
-      setOkDatos("Datos actualizados.");
+      await updateUser(updated);
+      setName(updated.name);
+      setEmail(updated.email);
+      setDataOk("Datos actualizados.");
     } catch (e) {
-      setErrorDatos(
+      setDataError(
         e instanceof Error ? e.message : "No se pudieron guardar los cambios.",
       );
     } finally {
-      setGuardandoDatos(false);
+      setSavingData(false);
     }
   };
 
-  const guardarClave = async () => {
+  const savePassword = async () => {
     if (!token) return;
 
-    setErrorClave(null);
-    setOkClave(null);
+    setPasswordError(null);
+    setPasswordOk(null);
 
-    if (claveActual.length === 0) {
-      setErrorClave("Escribe tu contraseña actual.");
+    if (currentPassword.length === 0) {
+      setPasswordError("Escribe tu contraseña actual.");
       return;
     }
-    if (claveNueva.length < 6) {
-      setErrorClave("La nueva contraseña debe tener al menos 6 caracteres.");
+    if (newPassword.length < 6) {
+      setPasswordError("La nueva contraseña debe tener al menos 6 caracteres.");
       return;
     }
-    if (claveNueva === claveActual) {
-      setErrorClave("La nueva contraseña debe ser distinta a la actual.");
+    if (newPassword === currentPassword) {
+      setPasswordError("La nueva contraseña debe ser distinta a la actual.");
       return;
     }
-    if (claveNueva !== claveRepetida) {
-      setErrorClave("Las contraseñas nuevas no coinciden.");
+    if (newPassword !== repeatedPassword) {
+      setPasswordError("Las contraseñas nuevas no coinciden.");
       return;
     }
 
-    setGuardandoClave(true);
+    setSavingPassword(true);
 
     try {
-      await cambiarPassword(claveActual, claveNueva, token);
-      setClaveActual("");
-      setClaveNueva("");
-      setClaveRepetida("");
-      setOkClave("Contraseña actualizada.");
+      await changePassword(currentPassword, newPassword, token);
+      setCurrentPassword("");
+      setNewPassword("");
+      setRepeatedPassword("");
+      setPasswordOk("Contraseña actualizada.");
     } catch (e) {
-      setErrorClave(
+      setPasswordError(
         e instanceof Error ? e.message : "No se pudo cambiar la contraseña.",
       );
     } finally {
-      setGuardandoClave(false);
+      setSavingPassword(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.contenedor}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.contenido}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.titulo}>Configuración de la cuenta</Text>
+        <Text style={styles.title}>Configuración de la cuenta</Text>
 
-        <Text style={styles.seccion}>Datos personales</Text>
+        <Text style={styles.section}>Datos personales</Text>
         <Field
-          value={nombre}
-          onChangeText={setNombre}
+          value={name}
+          onChangeText={setName}
           placeholder="Nombre completo"
           autoCapitalize="words"
         />
         <Field
-          value={correo}
-          onChangeText={setCorreo}
+          value={email}
+          onChangeText={setEmail}
           placeholder="Correo electrónico"
           keyboardType="email-address"
         />
-        {errorDatos && <Text style={styles.error}>{errorDatos}</Text>}
-        {okDatos && <Text style={styles.exito}>{okDatos}</Text>}
+        {dataError && <Text style={styles.error}>{dataError}</Text>}
+        {dataOk && <Text style={styles.success}>{dataOk}</Text>}
         <PrimaryButton
-          label={guardandoDatos ? "Guardando..." : "Guardar cambios"}
-          onPress={guardarDatos}
-          disabled={guardandoDatos}
+          label={savingData ? "Guardando..." : "Guardar cambios"}
+          onPress={saveData}
+          disabled={savingData}
         />
 
-        <Text style={[styles.seccion, styles.seccionSeparada]}>
+        <Text style={[styles.section, styles.sectionSeparated]}>
           Cambiar contraseña
         </Text>
         <Field
-          value={claveActual}
-          onChangeText={setClaveActual}
+          value={currentPassword}
+          onChangeText={setCurrentPassword}
           placeholder="Contraseña actual"
           secureTextEntry
         />
         <Field
-          value={claveNueva}
-          onChangeText={setClaveNueva}
+          value={newPassword}
+          onChangeText={setNewPassword}
           placeholder="Nueva contraseña"
           secureTextEntry
         />
         <Field
-          value={claveRepetida}
-          onChangeText={setClaveRepetida}
+          value={repeatedPassword}
+          onChangeText={setRepeatedPassword}
           placeholder="Repite la nueva contraseña"
           secureTextEntry
         />
-        {errorClave && <Text style={styles.error}>{errorClave}</Text>}
-        {okClave && <Text style={styles.exito}>{okClave}</Text>}
+        {passwordError && <Text style={styles.error}>{passwordError}</Text>}
+        {passwordOk && <Text style={styles.success}>{passwordOk}</Text>}
         <PrimaryButton
-          label={guardandoClave ? "Guardando..." : "Cambiar contraseña"}
-          onPress={guardarClave}
-          disabled={guardandoClave}
+          label={savingPassword ? "Guardando..." : "Cambiar contraseña"}
+          onPress={savePassword}
+          disabled={savingPassword}
         />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -182,27 +182,27 @@ export function AccountSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  contenido: {
+  content: {
     paddingHorizontal: 24,
     paddingBottom: spacing.xl,
   },
-  titulo: {
+  title: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
     marginBottom: spacing.lg,
   },
-  seccion: {
+  section: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
     marginBottom: spacing.sm,
   },
-  seccionSeparada: {
+  sectionSeparated: {
     marginTop: spacing.xl,
   },
   error: {
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: spacing.sm,
   },
-  exito: {
+  success: {
     color: "#2E7D32",
     fontSize: 12,
     marginBottom: spacing.sm,

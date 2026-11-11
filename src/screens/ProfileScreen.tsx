@@ -20,41 +20,41 @@ import {
 import { colors, radius, shadow, spacing } from "../styles/theme";
 import { useAuth } from "../context/AuthContext";
 import * as ImagePicker from "expo-image-picker";
-import { quitarAvatar, subirAvatar } from "../services/profile";
+import { removeAvatar, uploadAvatar } from "../services/profile";
 import {
-  calcularEstadisticas,
-  obtenerMisReservas,
-  obtenerReservasRecibidas,
+  calculateStats,
+  getMyBookings,
+  getReceivedBookings,
 } from "../services/bookings";
-import { MiCalificacion, obtenerMiCalificacion } from "../services/reviews";
+import { MyRating, getMyRating } from "../services/reviews";
 
-const OPCIONES: {
-  icono: "settings" | "help-circle";
-  texto: string;
-  pantalla?: "AccountSettings" | "Help";
+const OPTIONS: {
+  icon: "settings" | "help-circle";
+  text: string;
+  screen?: "AccountSettings" | "Help";
 }[] = [
   {
-    icono: "settings",
-    texto: "Configuración de la cuenta",
-    pantalla: "AccountSettings",
+    icon: "settings",
+    text: "Configuración de la cuenta",
+    screen: "AccountSettings",
   },
-  { icono: "help-circle", texto: "Obtén ayuda", pantalla: "Help" },
+  { icon: "help-circle", text: "Obtén ayuda", screen: "Help" },
 ];
 
 export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
   const insets = useSafeAreaInsets();
   const {
-    usuario,
+    user: user,
     token,
-    actualizarUsuario,
-    cerrarSesion: borrarSesion,
+    updateUser: updateUser,
+    logout: clearSession,
   } = useAuth();
-  const esPropietario = usuario?.role === "propietario";
-  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const isOwner = user?.role === "propietario";
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   // Reservas confirmadas del usuario (null = cargando o no disponible)
-  const [totalReservas, setTotalReservas] = useState<number | null>(null);
+  const [totalBookings, setTotalBookings] = useState<number | null>(null);
   // Calificación promedio (null = cargando o no disponible)
-  const [calificacion, setCalificacion] = useState<MiCalificacion | null>(null);
+  const [rating, setRating] = useState<MyRating | null>(null);
 
   // El conductor cuenta las reservas que hizo; el propietario, las que recibió.
   // Se recalcula cada vez que se vuelve a esta pestaña (por ejemplo, tras reservar o cancelar).
@@ -62,87 +62,87 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
     useCallback(() => {
       if (!token) return;
 
-      let activo = true;
-      const pedir = esPropietario ? obtenerReservasRecibidas : obtenerMisReservas;
+      let active = true;
+      const request = isOwner ? getReceivedBookings : getMyBookings;
 
-      pedir(token)
-        .then((datos) => {
-          if (activo) setTotalReservas(calcularEstadisticas(datos).total);
+      request(token)
+        .then((data) => {
+          if (active) setTotalBookings(calculateStats(data).total);
         })
         .catch(() => {
           // Si falla, se muestra un guion en lugar de un número inventado
-          if (activo) setTotalReservas(null);
+          if (active) setTotalBookings(null);
         });
 
-      obtenerMiCalificacion(token)
-        .then((dato) => {
-          if (activo) setCalificacion(dato);
+      getMyRating(token)
+        .then((result) => {
+          if (active) setRating(result);
         })
         .catch(() => {
-          if (activo) setCalificacion(null);
+          if (active) setRating(null);
         });
 
       return () => {
-        activo = false;
+        active = false;
       };
-    }, [token, esPropietario]),
+    }, [token, isOwner]),
   );
 
   // Abre la galería, deja recortar en cuadrado y sube la foto elegida
-  const elegirFoto = async () => {
-    const resultado = await ImagePicker.launchImageLibraryAsync({
+  const pickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
     });
 
-    if (resultado.canceled || !token) return;
+    if (result.canceled || !token) return;
 
-    const foto = resultado.assets[0];
-    setSubiendoFoto(true);
+    const photo = result.assets[0];
+    setUploadingPhoto(true);
 
     try {
-      const actualizado = await subirAvatar(foto.uri, foto.mimeType, token);
-      await actualizarUsuario(actualizado);
+      const updated = await uploadAvatar(photo.uri, photo.mimeType, token);
+      await updateUser(updated);
     } catch (e) {
       Alert.alert(
         "No se pudo subir la foto",
         e instanceof Error ? e.message : "Inténtalo de nuevo.",
       );
     } finally {
-      setSubiendoFoto(false);
+      setUploadingPhoto(false);
     }
   };
 
-  const quitarFoto = async () => {
+  const removePhoto = async () => {
     if (!token) return;
 
-    setSubiendoFoto(true);
+    setUploadingPhoto(true);
 
     try {
-      const actualizado = await quitarAvatar(token);
-      await actualizarUsuario(actualizado);
+      const updated = await removeAvatar(token);
+      await updateUser(updated);
     } catch (e) {
       Alert.alert(
         "No se pudo quitar la foto",
         e instanceof Error ? e.message : "Inténtalo de nuevo.",
       );
     } finally {
-      setSubiendoFoto(false);
+      setUploadingPhoto(false);
     }
   };
 
   // Al tocar el avatar: elegir una foto nueva o quitar la actual
-  const cambiarFoto = () => {
+  const changePhoto = () => {
     Alert.alert("Foto de perfil", undefined, [
-      { text: "Elegir de la galería", onPress: elegirFoto },
-      ...(usuario?.avatarUrl
+      { text: "Elegir de la galería", onPress: pickPhoto },
+      ...(user?.avatarUrl
         ? [
             {
               text: "Quitar foto",
               style: "destructive" as const,
-              onPress: quitarFoto,
+              onPress: removePhoto,
             },
           ]
         : []),
@@ -150,75 +150,75 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
     ]);
   };
 
-  const cerrarSesion = () => {
+  const logout = () => {
     // Primero se borra la sesión (usuario y token) y luego se vuelve al login.
-    borrarSesion();
+    clearSession();
     navigation.dispatch(
       CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }),
     );
   };
 
   return (
-    <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
-      <View style={styles.acciones}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
+      <View style={styles.actions}>
         <CircleButton icon="bell" />
       </View>
-      <Text style={styles.titulo}>Perfil</Text>
+      <Text style={styles.title}>Perfil</Text>
 
-      <ScrollView contentContainerStyle={styles.contenido}>
-        <View style={[styles.tarjeta, styles.tarjetaPerfil]}>
-          <View style={styles.perfil}>
-            <Pressable onPress={cambiarFoto} disabled={subiendoFoto}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={[styles.card, styles.profileCard]}>
+          <View style={styles.profile}>
+            <Pressable onPress={changePhoto} disabled={uploadingPhoto}>
               <AvatarPlaceholder
                 size={84}
                 source={
-                  usuario?.avatarUrl ? { uri: usuario.avatarUrl } : undefined
+                  user?.avatarUrl ? { uri: user.avatarUrl } : undefined
                 }
               />
-              <View style={styles.camara}>
-                {subiendoFoto ? (
+              <View style={styles.camera}>
+                {uploadingPhoto ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Feather name="camera" size={14} color={colors.white} />
                 )}
               </View>
             </Pressable>
-            <Text style={styles.nombre}>{usuario?.name ?? "Invitado"}</Text>
-            <Text style={styles.ubicacion}>
-              {esPropietario ? "Propietario" : "Conductor"}
+            <Text style={styles.name}>{user?.name ?? "Invitado"}</Text>
+            <Text style={styles.location}>
+              {isOwner ? "Propietario" : "Conductor"}
             </Text>
           </View>
 
-          <View style={styles.estadisticas}>
-            <Text style={styles.estadisticaValor}>{totalReservas ?? "-"}</Text>
-            <Text style={styles.estadisticaEtiqueta}>
-              {esPropietario ? "Reservas recibidas" : "Reservas"}
+          <View style={styles.stats}>
+            <Text style={styles.statValue}>{totalBookings ?? "-"}</Text>
+            <Text style={styles.statLabel}>
+              {isOwner ? "Reservas recibidas" : "Reservas"}
             </Text>
 
-            <View style={styles.separadorEstadisticas} />
+            <View style={styles.statsSeparator} />
 
             {/* Conductor: lo que le dan los propietarios. Propietario: promedio de sus parqueaderos */}
-            {calificacion && calificacion.resenas > 0 ? (
-              <View style={styles.filaCalificacion}>
-                <Text style={styles.estadisticaValor}>
-                  {calificacion.promedio.toFixed(1)}
+            {rating && rating.reviewCount > 0 ? (
+              <View style={styles.ratingRow}>
+                <Text style={styles.statValue}>
+                  {rating.average.toFixed(1)}
                 </Text>
                 <Ionicons name="star" size={22} color={colors.text} />
               </View>
             ) : (
-              <Text style={styles.estadisticaValor}>-</Text>
+              <Text style={styles.statValue}>-</Text>
             )}
-            <Text style={styles.estadisticaEtiqueta}>
-              {calificacion && calificacion.resenas === 0
+            <Text style={styles.statLabel}>
+              {rating && rating.reviewCount === 0
                 ? "Sin calificaciones"
                 : "Calificación"}
             </Text>
           </View>
         </View>
 
-        <View style={styles.fila}>
+        <View style={styles.row}>
           <Pressable
-            style={[styles.tarjeta, styles.tarjetaMini]}
+            style={[styles.card, styles.cardMini]}
             onPress={() => navigation.navigate("MyBookings")}
           >
             <ImagePlaceholder
@@ -226,19 +226,19 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
               iconSize={26}
               source={require("../../assets/images/laureles-2026.jpeg")}
             />
-            <Text style={styles.miniTexto}>Reservas anteriores</Text>
+            <Text style={styles.miniText}>Reservas anteriores</Text>
           </Pressable>
         </View>
 
-        {esPropietario && (
+        {isOwner && (
           <Pressable
-            style={[styles.tarjeta, styles.host]}
+            style={[styles.card, styles.host]}
             onPress={() => navigation.navigate("AddParking")}
           >
             <Feather name="plus-circle" size={26} color={colors.primary} />
-            <View style={styles.hostTextos}>
-              <Text style={styles.hostTitulo}>Publica tu parqueadero</Text>
-              <Text style={styles.hostDescripcion}>
+            <View style={styles.hostTexts}>
+              <Text style={styles.hostTitle}>Publica tu parqueadero</Text>
+              <Text style={styles.hostDescription}>
                 Renta tu espacio y genera ingresos.
               </Text>
             </View>
@@ -246,23 +246,23 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
           </Pressable>
         )}
 
-        <View style={styles.opciones}>
-          {OPCIONES.map((o) => (
+        <View style={styles.options}>
+          {OPTIONS.map((o) => (
             <Pressable
-              key={o.texto}
-              style={styles.opcion}
-              onPress={() => o.pantalla && navigation.navigate(o.pantalla)}
+              key={o.text}
+              style={styles.option}
+              onPress={() => o.screen && navigation.navigate(o.screen)}
             >
-              <Feather name={o.icono} size={18} color={colors.text} />
-              <Text style={styles.opcionTexto}>{o.texto}</Text>
+              <Feather name={o.icon} size={18} color={colors.text} />
+              <Text style={styles.optionText}>{o.text}</Text>
               <Feather name="chevron-right" size={16} color={colors.textLight} />
             </Pressable>
           ))}
         </View>
 
-        <Pressable style={styles.opcion} onPress={cerrarSesion}>
+        <Pressable style={styles.option} onPress={logout}>
           <Feather name="log-out" size={18} color={colors.primary} />
-          <Text style={[styles.opcionTexto, styles.opcionSalir]}>Cerrar sesión</Text>
+          <Text style={[styles.optionText, styles.optionLogout]}>Cerrar sesión</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -270,16 +270,16 @@ export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  acciones: {
+  actions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     paddingHorizontal: 24,
   },
-  titulo: {
+  title: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.text,
@@ -287,28 +287,28 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
-  contenido: {
+  content: {
     paddingHorizontal: 24,
     paddingBottom: spacing.xl,
   },
-  tarjeta: {
+  card: {
     backgroundColor: colors.white,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "#F0F0F0",
     ...shadow,
   },
-  tarjetaPerfil: {
+  profileCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: spacing.md,
     gap: spacing.md,
   },
-  perfil: {
+  profile: {
     flex: 1,
     alignItems: "center",
   },
-  camara: {
+  camera: {
     position: "absolute",
     right: 0,
     bottom: 0,
@@ -321,55 +321,55 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.white,
   },
-  nombre: {
+  name: {
     fontSize: 18,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.sm,
     textAlign: "center",
   },
-  ubicacion: {
+  location: {
     fontSize: 10,
     color: colors.textLight,
     marginTop: 2,
   },
-  estadisticas: {
+  stats: {
     flex: 1,
     alignItems: "center",
   },
-  estadisticaValor: {
+  statValue: {
     fontSize: 32,
     fontWeight: "700",
     color: colors.text,
   },
-  estadisticaEtiqueta: {
+  statLabel: {
     fontSize: 12,
     color: colors.text,
     textAlign: "center",
   },
-  separadorEstadisticas: {
+  statsSeparator: {
     width: 40,
     height: 1,
     backgroundColor: colors.borderLight,
     marginVertical: spacing.sm,
   },
-  filaCalificacion: {
+  ratingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  fila: {
+  row: {
     flexDirection: "row",
     gap: spacing.md,
     marginTop: spacing.md,
   },
-  tarjetaMini: {
+  cardMini: {
     flex: 1,
     alignItems: "center",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
   },
-  miniTexto: {
+  miniText: {
     fontSize: 13,
     fontWeight: "500",
     color: colors.text,
@@ -383,34 +383,34 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.md,
   },
-  hostTextos: {
+  hostTexts: {
     flex: 1,
   },
-  hostTitulo: {
+  hostTitle: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.text,
   },
-  hostDescripcion: {
+  hostDescription: {
     fontSize: 11,
     color: colors.textLight,
     marginTop: 3,
   },
-  opciones: {
+  options: {
     marginTop: spacing.lg,
   },
-  opcion: {
+  option: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
     paddingVertical: 12,
   },
-  opcionTexto: {
+  optionText: {
     flex: 1,
     fontSize: 12,
     color: colors.text,
   },
-  opcionSalir: {
+  optionLogout: {
     color: colors.primary,
     fontWeight: "600",
   },

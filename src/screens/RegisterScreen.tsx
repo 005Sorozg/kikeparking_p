@@ -15,123 +15,123 @@ import { useAuth } from "../context/AuthContext";
 
 // Registro: correo, teléfono, nombre, apellido y contraseña.
 export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
-  const { registrar: crearCuenta } = useAuth();
-  const [cargando, setCargando] = useState(false);
-  const [correo, setCorreo] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [nombre, setNombre] = useState("");
-  const [apellido, setApellido] = useState("");
-  const [clave, setClave] = useState("");
-  const [rol, setRol] = useState<"conductor" | "propietario" | null>(null);
+  const { register: createAccount } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"conductor" | "propietario" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-    const registrar = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())) {
+    const register = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError("Escribe un correo válido.");
       return;
     }
-    if (telefono.replace(/\D/g, "").length < 7) {
+    if (phone.replace(/\D/g, "").length < 7) {
       setError("Escribe un número de teléfono válido.");
       return;
     }
-    if (nombre.trim().length < 3) {
+    if (name.trim().length < 3) {
       setError("Escribe tu nombre completo.");
       return;
     }
-    if (apellido.trim().length < 2) {
+    if (lastName.trim().length < 2) {
       setError("Escribe tu apellido.");
       return;
     }
-    if (clave.length < 6) {
+    if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
-    if (!rol) {
+    if (!role) {
       setError("Elige si quieres ser conductor o propietario.");
       return;
     }
 
     setError(null);
-    setCargando(true);
+    setLoading(true);
 
     try {
       // El backend guarda un solo campo "name", así que juntamos nombre y apellido.
       // El teléfono no se envía porque el backend todavía no lo guarda.
-      await crearCuenta({
-        name: `${nombre.trim()} ${apellido.trim()}`,
-        email: correo.trim(),
-        password: clave,
-        role: rol,
+      await createAccount({
+        name: `${name.trim()} ${lastName.trim()}`,
+        email: email.trim(),
+        password,
+        role,
       });
       navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear la cuenta.");
     } finally {
-      setCargando(false);
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.contenedor}>
+    <View style={styles.container}>
       <BackButton onPress={() => navigation.goBack()} />
 
       <ScrollView
-        contentContainerStyle={styles.contenido}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         <BrandIcon size={40} />
-        <Text style={styles.titulo}>Bienvenido/a</Text>
+        <Text style={styles.title}>Bienvenido/a</Text>
 
         <Field
-          value={correo}
-          onChangeText={setCorreo}
+          value={email}
+          onChangeText={setEmail}
           placeholder="Correo electrónico"
           keyboardType="email-address"
         />
         <Field
-          value={telefono}
-          onChangeText={setTelefono}
+          value={phone}
+          onChangeText={setPhone}
           placeholder="Número de teléfono"
           keyboardType="phone-pad"
         />
         <Field
-          value={nombre}
-          onChangeText={setNombre}
+          value={name}
+          onChangeText={setName}
           placeholder="Nombre"
           autoCapitalize="words"
         />
         <Field
-          value={apellido}
-          onChangeText={setApellido}
+          value={lastName}
+          onChangeText={setLastName}
           placeholder="Apellido"
           autoCapitalize="words"
         />
         <Field
-          value={clave}
-          onChangeText={setClave}
+          value={password}
+          onChangeText={setPassword}
           placeholder="Contraseña"
           secureTextEntry
         />
-        <Text style={styles.etiquetaRol}>¿Cómo quieres usar Kike Parking?</Text>
-        <View style={styles.filaRol}>
+        <Text style={styles.roleLabel}>¿Cómo quieres usar Kike Parking?</Text>
+        <View style={styles.roleRow}>
           <Chip
             label="Conductor"
-            selected={rol === "conductor"}
-            onPress={() => setRol("conductor")}
+            selected={role === "conductor"}
+            onPress={() => setRole("conductor")}
           />
           <Chip
             label="Propietario"
-            selected={rol === "propietario"}
-            onPress={() => setRol("propietario")}
+            selected={role === "propietario"}
+            onPress={() => setRole("propietario")}
           />
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
 
         <PrimaryButton
-          label={cargando ? "Registrando..." : "Registrarse"}
-          onPress={registrar}
-          disabled={cargando}
+          label={loading ? "Registrando..." : "Registrarse"}
+          onPress={register}
+          disabled={loading}
         />
 
         <OrDivider />
@@ -142,18 +142,18 @@ export function RegisterScreen({ navigation }: AppScreenProps<"Register">) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  contenido: {
+  content: {
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 28,
     paddingBottom: 40,
   },
-  titulo: {
+  title: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
@@ -166,13 +166,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: spacing.sm,
   },
-  etiquetaRol: {
+  roleLabel: {
     alignSelf: "flex-start",
     fontSize: 12,
     color: colors.text,
     marginBottom: spacing.sm,
   },
-  filaRol: {
+  roleRow: {
     flexDirection: "row",
     gap: spacing.sm,
     alignSelf: "flex-start",

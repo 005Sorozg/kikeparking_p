@@ -3,8 +3,8 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import type { AppScreenProps } from "../types/navigation";
-import { formatearPrecio } from "../services/parking";
-import { useFavoritos } from "../context/FavoritesContext";
+import { formatPrice } from "../services/parking";
+import { useFavorites } from "../context/FavoritesContext";
 import { ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
@@ -13,54 +13,54 @@ export function FavoriteCollectionScreen({
   route,
   navigation,
 }: AppScreenProps<"FavoriteCollection">) {
-  const { barrio } = route.params;
-  const { favoritos, alternarFavorito } = useFavoritos();
-  const lista = favoritos.filter((p) => p.barrio === barrio);
-  const enfocada = useIsFocused();
+  const { neighborhood: neighborhood } = route.params;
+  const { favorites: favorites, toggleFavorite: toggleFavorite } = useFavorites();
+  const list = favorites.filter((p) => p.neighborhood === neighborhood);
+  const focused = useIsFocused();
 
   // Título del encabezado = nombre del barrio
   useEffect(() => {
-    navigation.setOptions({ title: barrio });
-  }, [navigation, barrio]);
+    navigation.setOptions({ title: neighborhood });
+  }, [navigation, neighborhood]);
 
   // Si quitó el último favorito del barrio, la colección ya no existe: se vuelve atrás.
   // Solo cuando esta pantalla está visible: si lo quitó desde el detalle (que está
   // encima), se espera a que regrese para no cerrar la pantalla equivocada.
   useEffect(() => {
-    if (enfocada && lista.length === 0 && navigation.canGoBack()) navigation.goBack();
-  }, [enfocada, lista.length, navigation]);
+    if (focused && list.length === 0 && navigation.canGoBack()) navigation.goBack();
+  }, [focused, list.length, navigation]);
 
   return (
     <FlatList
-      style={styles.contenedor}
-      data={lista}
+      style={styles.container}
+      data={list}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.lista}
-      ItemSeparatorComponent={() => <View style={styles.separador} />}
+      contentContainerStyle={styles.list}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
       renderItem={({ item }) => (
         <Pressable
-          style={styles.fila}
+          style={styles.row}
           onPress={() =>
             navigation.navigate("ParkingDetail", { parkingSpotId: item.id })
           }
         >
-          <ImagePlaceholder style={styles.foto} iconSize={30} source={item.imagen} />
-          <View style={styles.textos}>
-            <Text style={styles.nombre} numberOfLines={1}>
-              {item.titulo}
+          <ImagePlaceholder style={styles.photo} iconSize={30} source={item.image} />
+          <View style={styles.texts}>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.title}
             </Text>
-            <Text style={styles.detalle} numberOfLines={1}>
-              {item.direccion}
+            <Text style={styles.detail} numberOfLines={1}>
+              {item.address}
             </Text>
-            <Text style={styles.precio}>
-              {formatearPrecio(item.precioHora)}
-              <Text style={styles.precioUnidad}> / hora</Text>
+            <Text style={styles.price}>
+              {formatPrice(item.pricePerHour)}
+              <Text style={styles.priceUnit}> / hora</Text>
             </Text>
-            {!item.disponible && (
-              <Text style={styles.noDisponible}>No disponible por ahora</Text>
+            {!item.available && (
+              <Text style={styles.unavailable}>No disponible por ahora</Text>
             )}
           </View>
-          <Pressable hitSlop={10} onPress={() => alternarFavorito(item)}>
+          <Pressable hitSlop={10} onPress={() => toggleFavorite(item)}>
             <Ionicons name="heart" size={22} color={colors.primary} />
           </Pressable>
         </Pressable>
@@ -70,52 +70,52 @@ export function FavoriteCollectionScreen({
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  lista: {
+  list: {
     padding: 18,
   },
-  separador: {
+  separator: {
     height: 1,
     backgroundColor: colors.borderLight,
     marginVertical: spacing.md,
   },
-  fila: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
   },
-  foto: {
+  photo: {
     width: 84,
     height: 84,
     borderRadius: radius.md,
   },
-  textos: {
+  texts: {
     flex: 1,
   },
-  nombre: {
+  name: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 3,
   },
-  precio: {
+  price: {
     fontSize: 13,
     fontWeight: "700",
     color: colors.text,
     marginTop: 4,
   },
-  precioUnidad: {
+  priceUnit: {
     fontSize: 12,
     fontWeight: "400",
   },
-  noDisponible: {
+  unavailable: {
     fontSize: 11,
     color: colors.textLight,
     marginTop: 3,

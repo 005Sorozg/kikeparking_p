@@ -7,22 +7,22 @@ import React, {
   useState,
 } from "react";
 import { useAuth } from "./AuthContext";
-import type { Parqueadero } from "../services/parking";
+import type { ParkingSpot } from "../services/parking";
 import {
-  agregarFavorito,
-  obtenerFavoritos,
-  quitarFavorito,
+  addFavorite,
+  getFavorites,
+  removeFavorite,
 } from "../services/favorites";
 
 interface FavoritesContextValue {
   // Parqueaderos guardados, del más reciente al más antiguo
-  favoritos: Parqueadero[];
+  favorites: ParkingSpot[];
   // false mientras se cargan por primera vez
-  cargados: boolean;
+  loaded: boolean;
   error: string | null;
-  esFavorito: (id: string) => boolean;
-  alternarFavorito: (parqueadero: Parqueadero) => Promise<void>;
-  recargar: () => Promise<void>;
+  isFavorite: (id: string) => boolean;
+  toggleFavorite: (parkingSpot: ParkingSpot) => Promise<void>;
+  reload: () => Promise<void>;
 }
 
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
@@ -30,70 +30,70 @@ const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 // Comparte los favoritos entre Explorar, el detalle y la pestaña Favoritos:
 // si se marca el corazón en una pantalla, las demás se enteran sin recargar.
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const { usuario, token } = useAuth();
-  const esConductor = usuario?.role === "conductor";
-  const [favoritos, setFavoritos] = useState<Parqueadero[]>([]);
-  const [cargados, setCargados] = useState(false);
+  const { user: user, token } = useAuth();
+  const isDriver = user?.role === "conductor";
+  const [favorites, setFavorites] = useState<ParkingSpot[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const recargar = useCallback(async () => {
-    if (!token || !esConductor) return;
+  const reload = useCallback(async () => {
+    if (!token || !isDriver) return;
 
     try {
-      setFavoritos(await obtenerFavoritos(token));
+      setFavorites(await getFavorites(token));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudieron cargar los favoritos.");
     } finally {
-      setCargados(true);
+      setLoaded(true);
     }
-  }, [token, esConductor]);
+  }, [token, isDriver]);
 
   // Al iniciar sesión se cargan; al cerrarla se vacían.
   useEffect(() => {
-    setFavoritos([]);
-    setCargados(false);
-    recargar();
-  }, [recargar]);
+    setFavorites([]);
+    setLoaded(false);
+    reload();
+  }, [reload]);
 
-  const esFavorito = (id: string) => favoritos.some((p) => p.id === id);
+  const isFavorite = (id: string) => favorites.some((p) => p.id === id);
 
   // El corazón cambia al instante; si el backend falla, se deshace el cambio.
-  const alternarFavorito = async (parqueadero: Parqueadero) => {
+  const toggleFavorite = async (parkingSpot: ParkingSpot) => {
     if (!token) return;
 
-    const estaba = esFavorito(parqueadero.id);
-    const anteriores = favoritos;
+    const wasFavorite = isFavorite(parkingSpot.id);
+    const past = favorites;
 
-    setFavoritos(
-      estaba
-        ? favoritos.filter((p) => p.id !== parqueadero.id)
-        : [parqueadero, ...favoritos],
+    setFavorites(
+      wasFavorite
+        ? favorites.filter((p) => p.id !== parkingSpot.id)
+        : [parkingSpot, ...favorites],
     );
 
     try {
-      if (estaba) await quitarFavorito(parqueadero.id, token);
-      else await agregarFavorito(parqueadero.id, token);
+      if (wasFavorite) await removeFavorite(parkingSpot.id, token);
+      else await addFavorite(parkingSpot.id, token);
     } catch {
-      setFavoritos(anteriores);
+      setFavorites(past);
     }
   };
 
   return (
     <FavoritesContext.Provider
-      value={{ favoritos, cargados, error, esFavorito, alternarFavorito, recargar }}
+      value={{ favorites, loaded, error, isFavorite, toggleFavorite, reload }}
     >
       {children}
     </FavoritesContext.Provider>
   );
 }
 
-export function useFavoritos(): FavoritesContextValue {
-  const contexto = useContext(FavoritesContext);
+export function useFavorites(): FavoritesContextValue {
+  const context = useContext(FavoritesContext);
 
-  if (!contexto) {
+  if (!context) {
     throw new Error("useFavoritos debe usarse dentro de un FavoritesProvider");
   }
 
-  return contexto;
+  return context;
 }
