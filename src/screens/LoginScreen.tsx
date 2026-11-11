@@ -18,44 +18,44 @@ import { colors, spacing } from "../styles/theme";
 
 // Primer paso del acceso: correo o teléfono. Al continuar pasa a pedir la contraseña.
 export function LoginScreen({ navigation }: AppScreenProps<"Login">) {
-  const [identificador, setIdentificador] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const continuar = () => {
-    const valor = identificador.trim();
-    const esCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
-    const esTelefono = /^\+?[\d\s-]{7,15}$/.test(valor);
-    if (!esCorreo && !esTelefono) {
+  const handleContinue = () => {
+    const value = identifier.trim();
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    const isPhone = /^\+?[\d\s-]{7,15}$/.test(value);
+    if (!isEmail && !isPhone) {
       setError("Escribe un correo o un número de teléfono válido.");
       return;
     }
     setError(null);
-    navigation.navigate("LoginPassword", { identifier: valor });
+    navigation.navigate("LoginPassword", { identifier: value });
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.contenedor}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <BrandIcon size={40} />
-      <Text style={styles.titulo}>Inicia sesión o regístrate</Text>
+      <Text style={styles.title}>Inicia sesión o regístrate</Text>
 
       <Field
-        value={identificador}
-        onChangeText={setIdentificador}
+        value={identifier}
+        onChangeText={setIdentifier}
         placeholder="Número de teléfono o correo electrónico"
         keyboardType="email-address"
       />
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <PrimaryButton label="Continuar" onPress={continuar} />
+      <PrimaryButton label="Continuar" onPress={handleContinue} />
 
       <OrDivider />
 
       <Pressable onPress={() => navigation.navigate("Register")}>
-        <Text style={styles.enlace}>Registrarse con correo</Text>
+        <Text style={styles.link}>Registrarse con correo</Text>
       </Pressable>
 
       <SocialButtons />
@@ -64,14 +64,14 @@ export function LoginScreen({ navigation }: AppScreenProps<"Login">) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 28,
   },
-  titulo: {
+  title: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: spacing.sm,
   },
-  enlace: {
+  link: {
     fontSize: 12,
     color: colors.text,
     textDecorationLine: "underline",

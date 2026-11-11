@@ -12,101 +12,101 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MainTabScreenProps } from "../types/navigation";
 import {
-  Conversacion,
-  archivarConversacion,
-  eliminarConversacion,
-  formatearFechaChat,
-  obtenerConversaciones,
+  Conversation,
+  archiveConversation,
+  deleteConversation,
+  formatChatDate,
+  getConversations,
 } from "../services/messages";
 import { useAuth } from "../context/AuthContext";
-import { useNoLeidos } from "../context/UnreadContext";
+import { useUnread } from "../context/UnreadContext";
 import { AvatarPlaceholder, Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
-type Filtro = "todos" | "no_leidos" | "archivados";
+type Filter = "all" | "unread" | "archived";
 
-const FILTROS: { id: Filtro; etiqueta: string }[] = [
-  { id: "todos", etiqueta: "Todos" },
-  { id: "no_leidos", etiqueta: "No leídos" },
-  { id: "archivados", etiqueta: "Archivados" },
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "Todos" },
+  { id: "unread", label: "No leídos" },
+  { id: "archived", label: "Archivados" },
 ];
 
-const VACIO: Record<Filtro, string> = {
-  todos: "Aún no tienes mensajes.",
-  no_leidos: "No tienes mensajes sin leer.",
-  archivados: "No tienes chats archivados.",
+const EMPTY_MESSAGES: Record<Filter, string> = {
+  all: "Aún no tienes mensajes.",
+  unread: "No tienes mensajes sin leer.",
+  archived: "No tienes chats archivados.",
 };
 
 // Cada cuánto se actualiza la lista mientras la pantalla está abierta
-const INTERVALO_MS = 10000;
+const INTERVAL_MS = 10000;
 
 // Mensajes: chats con conductores o propietarios. Mantener presionado abre el menú.
 export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
   const insets = useSafeAreaInsets();
-  const { usuario, token } = useAuth();
-  const { actualizar: actualizarNoLeidos } = useNoLeidos();
-  const [filtro, setFiltro] = useState<Filtro>("todos");
-  const [chats, setChats] = useState<Conversacion[] | null>(null);
+  const { user: user, token } = useAuth();
+  const { update: refreshUnread } = useUnread();
+  const [filter, setFilter] = useState<Filter>("all");
+  const [chats, setChats] = useState<Conversation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Chat sobre el que se abrió el menú (y si se está confirmando la eliminación)
-  const [menu, setMenu] = useState<Conversacion | null>(null);
-  const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [menu, setMenu] = useState<Conversation | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const cargar = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!token) return;
     try {
-      setChats(await obtenerConversaciones(token, filtro === "archivados"));
+      setChats(await getConversations(token, filter === "archived"));
       setError(null);
       // La lista y el número de la pestaña se actualizan juntos
-      actualizarNoLeidos();
+      refreshUnread();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudieron cargar los mensajes.");
     }
-  }, [token, filtro, actualizarNoLeidos]);
+  }, [token, filter, refreshUnread]);
 
   // Se carga al entrar (o al cambiar de filtro) y se actualiza cada 10 s mientras se ve.
   useFocusEffect(
     useCallback(() => {
-      cargar();
-      const temporizador = setInterval(cargar, INTERVALO_MS);
-      return () => clearInterval(temporizador);
-    }, [cargar]),
+      load();
+      const timer = setInterval(load, INTERVAL_MS);
+      return () => clearInterval(timer);
+    }, [load]),
   );
 
-  const cambiarFiltro = (nuevo: Filtro) => {
-    if (nuevo === filtro) return;
+  const changeFilter = (created: Filter) => {
+    if (created === filter) return;
     setChats(null);
-    setFiltro(nuevo);
+    setFilter(created);
   };
 
-  const cerrarMenu = () => {
+  const closeMenu = () => {
     setMenu(null);
-    setConfirmarEliminar(false);
+    setConfirmingDelete(false);
   };
 
   // Archivar / desarchivar / eliminar: el chat sale de la lista actual al instante.
-  const aplicar = async (accion: "archivar" | "eliminar") => {
+  const apply = async (action: "archive" | "delete") => {
     if (!menu || !token) return;
     const chat = menu;
-    cerrarMenu();
-    setChats((actuales) => (actuales ?? []).filter((c) => c.id !== chat.id));
+    closeMenu();
+    setChats((current) => (current ?? []).filter((c) => c.id !== chat.id));
 
     try {
-      if (accion === "eliminar") await eliminarConversacion(chat.id, token);
-      else await archivarConversacion(chat.id, !chat.archivada, token);
+      if (action === "delete") await deleteConversation(chat.id, token);
+      else await archiveConversation(chat.id, !chat.archived, token);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo actualizar el chat.");
     }
-    cargar();
+    load();
   };
 
-  const visibles = (chats ?? []).filter(
-    (c) => filtro !== "no_leidos" || c.noLeidos > 0,
+  const visibleItems = (chats ?? []).filter(
+    (c) => filter !== "unread" || c.unread > 0,
   );
 
   return (
-    <View style={[styles.contenedor, { paddingTop: insets.top + spacing.sm }]}>
-      <Text style={styles.titulo}>Mensajes</Text>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
+      <Text style={styles.title}>Mensajes</Text>
 
       <View>
         <ScrollView
@@ -114,38 +114,38 @@ export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chips}
         >
-          {FILTROS.map((f) => (
+          {FILTERS.map((f) => (
             <Chip
               key={f.id}
-              label={f.etiqueta}
+              label={f.label}
               variant="filled"
-              selected={filtro === f.id}
-              onPress={() => cambiarFiltro(f.id)}
+              selected={filter === f.id}
+              onPress={() => changeFilter(f.id)}
             />
           ))}
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.lista}>
+      <ScrollView contentContainerStyle={styles.list}>
         {error && <Text style={styles.error}>{error}</Text>}
         {!chats && !error && <ActivityIndicator color={colors.primary} />}
-        {chats && visibles.length === 0 && (
-          <Text style={styles.vacio}>
-            {VACIO[filtro]}
-            {filtro === "todos" && usuario?.role === "conductor"
+        {chats && visibleItems.length === 0 && (
+          <Text style={styles.empty}>
+            {EMPTY_MESSAGES[filter]}
+            {filter === "all" && user?.role === "conductor"
               ? " Escríbele a un propietario desde el detalle de su parqueadero."
               : ""}
           </Text>
         )}
 
-        {visibles.map((c) => (
-          <FilaConversacion
+        {visibleItems.map((c) => (
+          <ConversationRow
             key={c.id}
-            conversacion={c}
+            conversation={c}
             onPress={() =>
               navigation.navigate("Chat", {
                 conversationId: c.id,
-                titulo: c.contacto.nombre,
+                title: c.contact.name,
               })
             }
             onLongPress={() => setMenu(c)}
@@ -154,39 +154,39 @@ export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
       </ScrollView>
 
       {/* Menú al mantener presionado un chat */}
-      <Modal visible={menu !== null} transparent animationType="fade" onRequestClose={cerrarMenu}>
-        <Pressable style={styles.fondoMenu} onPress={cerrarMenu}>
+      <Modal visible={menu !== null} transparent animationType="fade" onRequestClose={closeMenu}>
+        <Pressable style={styles.menuBackdrop} onPress={closeMenu}>
           <Pressable style={[styles.menu, { paddingBottom: insets.bottom + spacing.md }]}>
-            {menu && !confirmarEliminar && (
+            {menu && !confirmingDelete && (
               <>
-                <Text style={styles.menuTitulo} numberOfLines={1}>
-                  {menu.contacto.nombre} · {menu.parqueadero.titulo}
+                <Text style={styles.menuTitle} numberOfLines={1}>
+                  {menu.contact.name} · {menu.parkingSpot.title}
                 </Text>
-                <Pressable style={styles.menuOpcion} onPress={() => aplicar("archivar")}>
-                  <Text style={styles.menuTexto}>
-                    {menu.archivada ? "Desarchivar" : "Archivar"}
+                <Pressable style={styles.menuOption} onPress={() => apply("archive")}>
+                  <Text style={styles.menuText}>
+                    {menu.archived ? "Desarchivar" : "Archivar"}
                   </Text>
                 </Pressable>
-                <Pressable style={styles.menuOpcion} onPress={() => setConfirmarEliminar(true)}>
-                  <Text style={[styles.menuTexto, styles.menuPeligro]}>Eliminar</Text>
+                <Pressable style={styles.menuOption} onPress={() => setConfirmingDelete(true)}>
+                  <Text style={[styles.menuText, styles.menuDanger]}>Eliminar</Text>
                 </Pressable>
-                <Pressable style={styles.menuOpcion} onPress={cerrarMenu}>
-                  <Text style={styles.menuCancelar}>Cancelar</Text>
+                <Pressable style={styles.menuOption} onPress={closeMenu}>
+                  <Text style={styles.menuCancel}>Cancelar</Text>
                 </Pressable>
               </>
             )}
-            {menu && confirmarEliminar && (
+            {menu && confirmingDelete && (
               <>
-                <Text style={styles.menuTitulo}>¿Eliminar este chat?</Text>
-                <Text style={styles.menuAviso}>
-                  Se borrará solo para ti. {menu.contacto.nombre} conservará los
+                <Text style={styles.menuTitle}>¿Eliminar este chat?</Text>
+                <Text style={styles.menuNotice}>
+                  Se borrará solo para ti. {menu.contact.name} conservará los
                   mensajes. Si te vuelve a escribir, el chat reaparecerá.
                 </Text>
-                <Pressable style={styles.menuOpcion} onPress={() => aplicar("eliminar")}>
-                  <Text style={[styles.menuTexto, styles.menuPeligro]}>Eliminar</Text>
+                <Pressable style={styles.menuOption} onPress={() => apply("delete")}>
+                  <Text style={[styles.menuText, styles.menuDanger]}>Eliminar</Text>
                 </Pressable>
-                <Pressable style={styles.menuOpcion} onPress={cerrarMenu}>
-                  <Text style={styles.menuCancelar}>Cancelar</Text>
+                <Pressable style={styles.menuOption} onPress={closeMenu}>
+                  <Text style={styles.menuCancel}>Cancelar</Text>
                 </Pressable>
               </>
             )}
@@ -198,58 +198,58 @@ export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
 }
 
 // Fila de la lista: foto del parqueadero con la foto de la otra persona en la esquina.
-function FilaConversacion({
-  conversacion: c,
+function ConversationRow({
+  conversation: c,
   onPress,
   onLongPress,
 }: {
-  conversacion: Conversacion;
+  conversation: Conversation;
   onPress: () => void;
   onLongPress: () => void;
 }) {
-  const sinLeer = c.noLeidos > 0;
-  const ultimo = c.ultimoMensaje
-    ? `${c.ultimoMensaje.mio ? "Tú: " : ""}${c.ultimoMensaje.texto}`
+  const unread = c.unread > 0;
+  const last = c.lastMessage
+    ? `${c.lastMessage.isMine ? "Tú: " : ""}${c.lastMessage.text}`
     : "Sin mensajes todavía";
 
   return (
     <Pressable
-      style={styles.fila}
+      style={styles.row}
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}
     >
-      <View style={styles.avatarGrupo}>
+      <View style={styles.avatarGroup}>
         <ImagePlaceholder
-          style={styles.avatarImagen}
+          style={styles.avatarImage}
           iconSize={22}
-          source={c.parqueadero.foto}
+          source={c.parkingSpot.photo}
         />
         <View style={styles.avatarMini}>
-          <AvatarPlaceholder size={24} source={c.contacto.foto} />
+          <AvatarPlaceholder size={24} source={c.contact.photo} />
         </View>
       </View>
 
-      <View style={styles.textos}>
-        <Text style={[styles.nombre, sinLeer && styles.negrita]} numberOfLines={1}>
-          {c.contacto.nombre}
+      <View style={styles.texts}>
+        <Text style={[styles.name, unread && styles.bold]} numberOfLines={1}>
+          {c.contact.name}
         </Text>
         <Text
-          style={[styles.detalle, sinLeer && styles.mensajeSinLeer]}
+          style={[styles.detail, unread && styles.unreadMessage]}
           numberOfLines={1}
         >
-          {ultimo}
+          {last}
         </Text>
-        <Text style={styles.detalle} numberOfLines={1}>
-          {c.parqueadero.titulo} · {c.parqueadero.barrio}
+        <Text style={styles.detail} numberOfLines={1}>
+          {c.parkingSpot.title} · {c.parkingSpot.neighborhood}
         </Text>
       </View>
 
-      <View style={styles.derecha}>
-        <Text style={styles.fecha}>{formatearFechaChat(c.fecha)}</Text>
-        {sinLeer && (
-          <View style={styles.contador}>
-            <Text style={styles.contadorTexto}>{c.noLeidos}</Text>
+      <View style={styles.rightSide}>
+        <Text style={styles.date}>{formatChatDate(c.date)}</Text>
+        {unread && (
+          <View style={styles.counter}>
+            <Text style={styles.counterText}>{c.unread}</Text>
           </View>
         )}
       </View>
@@ -258,11 +258,11 @@ function FilaConversacion({
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  titulo: {
+  title: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.text,
@@ -275,22 +275,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
   },
-  lista: {
+  list: {
     paddingHorizontal: 24,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
   },
-  fila: {
+  row: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 14,
     marginBottom: spacing.lg,
   },
-  avatarGrupo: {
+  avatarGroup: {
     width: 56,
     height: 56,
   },
-  avatarImagen: {
+  avatarImage: {
     width: 48,
     height: 48,
     borderRadius: 10,
@@ -303,35 +303,35 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.white,
   },
-  textos: {
+  texts: {
     flex: 1,
   },
-  nombre: {
+  name: {
     fontSize: 13,
     fontWeight: "500",
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 11,
     color: colors.textLight,
     marginTop: 3,
   },
-  fecha: {
+  date: {
     fontSize: 11,
     color: colors.textLight,
   },
-  negrita: {
+  bold: {
     fontWeight: "700",
   },
-  mensajeSinLeer: {
+  unreadMessage: {
     color: colors.text,
     fontWeight: "600",
   },
-  derecha: {
+  rightSide: {
     alignItems: "flex-end",
     gap: 6,
   },
-  contador: {
+  counter: {
     minWidth: 20,
     height: 20,
     borderRadius: 10,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  contadorTexto: {
+  counterText: {
     fontSize: 11,
     fontWeight: "700",
     color: colors.white,
@@ -350,13 +350,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: spacing.md,
   },
-  vacio: {
+  empty: {
     fontSize: 13,
     color: colors.textLight,
     textAlign: "center",
     marginTop: spacing.xl,
   },
-  fondoMenu: {
+  menuBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
     justifyContent: "flex-end",
@@ -368,31 +368,31 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingHorizontal: 24,
   },
-  menuTitulo: {
+  menuTitle: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
     marginBottom: spacing.sm,
   },
-  menuAviso: {
+  menuNotice: {
     fontSize: 12,
     color: colors.textLight,
     marginBottom: spacing.sm,
   },
-  menuOpcion: {
+  menuOption: {
     paddingVertical: 14,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
-  menuTexto: {
+  menuText: {
     fontSize: 15,
     color: colors.text,
   },
-  menuPeligro: {
+  menuDanger: {
     color: colors.primary,
     fontWeight: "600",
   },
-  menuCancelar: {
+  menuCancel: {
     fontSize: 15,
     color: colors.textLight,
   },

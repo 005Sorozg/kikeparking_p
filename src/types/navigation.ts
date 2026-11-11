@@ -21,13 +21,13 @@ export type AppStackParamList = {
   ParkingDetail: { parkingSpotId: string };
   Booking: { parkingSpotId: string };
   // Pago de una reserva pendiente: lo necesario para mostrar el resumen sin pedirlo otra vez
-  Payment: { reservaId: number; titulo: string; total: number; limitePago: string };
+  Payment: { bookingId: number; title: string; total: number; paymentDeadline: string };
   MyBookings: undefined;
   AddParking: undefined;
   MyParkingDetail: { parkingSpotId: string };
-  FavoriteCollection: { barrio: string };
+  FavoriteCollection: { neighborhood: string };
   EditParking: { parkingSpotId: string };
-  Chat: { conversationId: string; titulo?: string };
+  Chat: { conversationId: string; title?: string };
   Help: undefined;
   AccountSettings: undefined;
 };

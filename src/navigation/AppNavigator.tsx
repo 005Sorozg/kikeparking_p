@@ -15,7 +15,7 @@ import { HomeScreen } from "../screens/HomeScreen";
 import { MyParkingsScreen } from "../screens/MyParkingsScreen";
 import { MyParkingDetailScreen } from "../screens/MyParkingDetailScreen";
 import { useAuth } from "../context/AuthContext";
-import { useNoLeidos } from "../context/UnreadContext";
+import { useUnread } from "../context/UnreadContext";
 import { FavoritesScreen } from "../screens/FavoritesScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { ProfileScreen } from "../screens/ProfileScreen";
@@ -35,10 +35,10 @@ import { AccountSettingsScreen } from "../screens/AccountSettingsScreen";
 const navigationRef = createNavigationContainerRef<AppStackParamList>();
 
 // Pantallas a las que se puede estar sin sesión.
-const PANTALLAS_SIN_SESION = ["Login", "LoginPassword", "Register"];
+const GUEST_SCREENS = ["Login", "LoginPassword", "Register"];
 
 // Encabezado de las pantallas que se abren encima de las pestañas.
-const encabezado = {
+const heading = {
   headerShown: true,
   headerShadowVisible: false,
   headerTintColor: colors.text,
@@ -49,9 +49,9 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 // La barra de abajo con las 4 pestañas principales.
 function MainTabs() {
-  const { usuario } = useAuth();
-  const esPropietario = usuario?.role === "propietario";
-  const { noLeidos } = useNoLeidos();
+  const { user: user } = useAuth();
+  const isOwner = user?.role === "propietario";
+  const { unread: unread } = useUnread();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -67,13 +67,13 @@ function MainTabs() {
     >
       <Tab.Screen
         name="Explore"
-        component={esPropietario ? MyParkingsScreen : HomeScreen}
+        component={isOwner ? MyParkingsScreen : HomeScreen}
         options={{
           // "Mis parqueaderos" no cabe en la barra de abajo
-          title: esPropietario ? "Parqueaderos" : "Explorar",
+          title: isOwner ? "Parqueaderos" : "Explorar",
           tabBarIcon: ({ color }) => (
             <Feather
-              name={esPropietario ? "home" : "search"}
+              name={isOwner ? "home" : "search"}
               size={22}
               color={color}
             />
@@ -81,7 +81,7 @@ function MainTabs() {
         }}
       />
       {/* Los favoritos son de los conductores: al propietario no se le muestra la pestaña */}
-      {!esPropietario && (
+      {!isOwner && (
         <Tab.Screen
           name="Favorites"
           component={FavoritesScreen}
@@ -102,7 +102,7 @@ function MainTabs() {
             <Feather name="message-circle" size={22} color={color} />
           ),
           // Número rojo con los mensajes sin leer (no se muestra si es 0)
-          tabBarBadge: noLeidos > 0 ? (noLeidos > 99 ? "99+" : noLeidos) : undefined,
+          tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />
@@ -121,21 +121,21 @@ function MainTabs() {
 }
 
 export function AppNavigator() {
-  const { usuario, cargando } = useAuth();
+  const { user: user, loading: loading } = useAuth();
 
   // Si la sesión se cierra estando dentro de la app (ej: el backend rechazó el token
   // porque venció), se vuelve al login.
   useEffect(() => {
-    if (cargando || usuario || !navigationRef.isReady()) return;
+    if (loading || user || !navigationRef.isReady()) return;
 
-    const actual = navigationRef.getCurrentRoute()?.name;
-    if (actual && !PANTALLAS_SIN_SESION.includes(actual)) {
+    const current = navigationRef.getCurrentRoute()?.name;
+    if (current && !GUEST_SCREENS.includes(current)) {
       navigationRef.reset({ index: 0, routes: [{ name: "Login" }] });
     }
-  }, [usuario, cargando]);
+  }, [user, loading]);
 
   // Mientras se lee la sesión guardada no se sabe si empezar en Login o en Home.
-  if (cargando) {
+  if (loading) {
     return (
       <View
         style={{
@@ -154,7 +154,7 @@ export function AppNavigator() {
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         // Con sesión guardada se entra directo a la app
-        initialRouteName={usuario ? "Home" : "Login"}
+        initialRouteName={user ? "Home" : "Login"}
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
@@ -174,53 +174,53 @@ export function AppNavigator() {
         <Stack.Screen
           name="Booking"
           component={BookingScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="Payment"
           component={PaymentScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="MyBookings"
           component={MyBookingsScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="AddParking"
           component={AddParkingScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="FavoriteCollection"
           component={FavoriteCollectionScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="MyParkingDetail"
           component={MyParkingDetailScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="EditParking"
           component={EditParkingScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="Chat"
           component={ChatScreen}
           // El título (nombre de la otra persona) lo pone la pantalla del chat
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
         <Stack.Screen
           name="Help"
           component={HelpScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
                 <Stack.Screen
           name="AccountSettings"
           component={AccountSettingsScreen}
-          options={{ ...encabezado, title: "" }}
+          options={{ ...heading, title: "" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

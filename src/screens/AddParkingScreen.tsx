@@ -15,11 +15,11 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { AppScreenProps } from "../types/navigation";
 import {
-  CARACTERISTICAS_INICIALES,
-  MAX_FOTOS_PARQUEADERO,
-  Ubicacion,
-  publicarParqueadero,
-  subirFotoParqueadero,
+  INITIAL_FEATURES,
+  MAX_PARKING_PHOTOS,
+  Coordinates,
+  publishParkingSpot,
+  uploadParkingPhoto,
 } from "../services/parking";
 import { useAuth } from "../context/AuthContext";
 import { Field, PrimaryButton } from "../components/ui";
@@ -28,9 +28,9 @@ import { LocationPicker } from "../components/LocationPicker";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Foto elegida de la galería que todavía no se ha subido
-interface FotoLocal {
+interface LocalPhoto {
   uri: string;
-  tipo?: string;
+  type?: string;
 }
 
 // Agregar parqueadero: formulario del propietario para publicar su espacio.
@@ -38,66 +38,66 @@ interface FotoLocal {
 // parqueadero ya existe, sube sus fotos una por una.
 export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
   const { token } = useAuth();
-  const [titulo, setTitulo] = useState("");
-  const [barrio, setBarrio] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [precioHora, setPrecioHora] = useState("");
-  const [fotos, setFotos] = useState<FotoLocal[]>([]);
-  const [caracteristicas, setCaracteristicas] = useState(CARACTERISTICAS_INICIALES);
-  const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null);
+  const [title, setTitle] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [address, setAddress] = useState("");
+  const [pricePerHour, setPricePerHour] = useState("");
+  const [photos, setPhotos] = useState<LocalPhoto[]>([]);
+  const [features, setFeatures] = useState(INITIAL_FEATURES);
+  const [location, setLocation] = useState<Coordinates | null>(null);
   // Texto de avance mientras se suben las fotos (null = nada en curso)
-  const [progreso, setProgreso] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Abre la galería y deja varias fotos listas para subir al publicar
-  const elegirFotos = async () => {
-    const disponibles = MAX_FOTOS_PARQUEADERO - fotos.length;
+  const pickPhotos = async () => {
+    const availableSpots = MAX_PARKING_PHOTOS - photos.length;
 
-    if (disponibles <= 0) {
+    if (availableSpots <= 0) {
       Alert.alert(
         "Límite de fotos",
-        `Un parqueadero puede tener máximo ${MAX_FOTOS_PARQUEADERO} fotos.`,
+        `Un parqueadero puede tener máximo ${MAX_PARKING_PHOTOS} fotos.`,
       );
       return;
     }
 
-    const resultado = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
-      selectionLimit: disponibles,
+      selectionLimit: availableSpots,
       quality: 0.7,
     });
 
-    if (resultado.canceled) return;
+    if (result.canceled) return;
 
-    const nuevas = resultado.assets
-      .slice(0, disponibles)
-      .map((foto) => ({ uri: foto.uri, tipo: foto.mimeType }));
+    const next = result.assets
+      .slice(0, availableSpots)
+      .map((photo) => ({ uri: photo.uri, type: photo.mimeType }));
 
-    setFotos((actuales) => [...actuales, ...nuevas]);
+    setPhotos((current) => [...current, ...next]);
   };
 
-  const quitarFoto = (indice: number) => {
-    setFotos((actuales) => actuales.filter((_, i) => i !== indice));
+  const removePhoto = (index: number) => {
+    setPhotos((current) => current.filter((_, i) => i !== index));
   };
 
-  const publicar = async () => {
+  const publish = async () => {
     // Mismas reglas que valida el backend, para avisar antes de enviar.
-    const precio = Number(precioHora.replace(/\D/g, ""));
-    if (titulo.trim().length < 3) {
+    const price = Number(pricePerHour.replace(/\D/g, ""));
+    if (title.trim().length < 3) {
       setError("El título debe tener al menos 3 caracteres.");
       return;
     }
-    if (barrio.trim().length < 2) {
+    if (neighborhood.trim().length < 2) {
       setError("Escribe el barrio.");
       return;
     }
-    if (direccion.trim().length < 3) {
+    if (address.trim().length < 3) {
       setError("Escribe la dirección.");
       return;
     }
-    if (!Number.isInteger(precio) || precio <= 0) {
+    if (!Number.isInteger(price) || price <= 0) {
       setError("El precio por hora debe ser un número mayor que 0.");
       return;
     }
@@ -107,39 +107,39 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
     }
 
     setError(null);
-    setCargando(true);
+    setLoading(true);
 
     try {
-      const nuevo = await publicarParqueadero(
+      const created = await publishParkingSpot(
         {
-          titulo: titulo.trim(),
-          barrio: barrio.trim(),
-          direccion: direccion.trim(),
-          precioHora: precio,
-          caracteristicas,
-          ubicacion,
+          title: title.trim(),
+          neighborhood: neighborhood.trim(),
+          address: address.trim(),
+          pricePerHour: price,
+          features,
+          location,
         },
         token,
       );
 
       // El parqueadero ya existe: ahora se suben sus fotos, una por una
-      let fallidas = 0;
+      let failed = 0;
 
-      for (let i = 0; i < fotos.length; i++) {
-        setProgreso(`Subiendo foto ${i + 1} de ${fotos.length}...`);
+      for (let i = 0; i < photos.length; i++) {
+        setProgress(`Subiendo foto ${i + 1} de ${photos.length}...`);
 
         try {
-          await subirFotoParqueadero(nuevo.id, fotos[i].uri, fotos[i].tipo, token);
+          await uploadParkingPhoto(created.id, photos[i].uri, photos[i].type, token);
         } catch {
-          fallidas++;
+          failed++;
         }
       }
 
-      if (fallidas > 0) {
+      if (failed > 0) {
         // El parqueadero quedó publicado; solo faltan algunas fotos
         Alert.alert(
           "Parqueadero publicado",
-          `No se pudieron subir ${fallidas} de ${fotos.length} fotos. Puedes agregarlas desde Mis parqueaderos, en "Editar información".`,
+          `No se pudieron subir ${failed} de ${photos.length} fotos. Puedes agregarlas desde Mis parqueaderos, en "Editar información".`,
           [{ text: "Entendido", onPress: () => navigation.goBack() }],
         );
       } else {
@@ -151,118 +151,118 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
         e instanceof Error ? e.message : "No se pudo publicar el parqueadero.",
       );
     } finally {
-      setCargando(false);
-      setProgreso(null);
+      setLoading(false);
+      setProgress(null);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.contenedor}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.contenido}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.titulo}>Agrega tu parqueadero</Text>
-        <Text style={styles.subtitulo}>
+        <Text style={styles.title}>Agrega tu parqueadero</Text>
+        <Text style={styles.subtitle}>
           Cuéntanos sobre tu espacio para que los conductores puedan reservarlo.
         </Text>
 
-        <Text style={styles.etiquetaCampo}>
-          Fotos ({fotos.length}/{MAX_FOTOS_PARQUEADERO})
+        <Text style={styles.fieldLabel}>
+          Fotos ({photos.length}/{MAX_PARKING_PHOTOS})
         </Text>
-        <Text style={styles.ayudaFotos}>
+        <Text style={styles.photosHelp}>
           Se suben al publicar. La primera es la portada.
         </Text>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filaFotos}
+          contentContainerStyle={styles.photosRow}
         >
-          {fotos.map((foto, indice) => (
-            <View key={foto.uri} style={styles.fotoCaja}>
-              <Image source={{ uri: foto.uri }} style={styles.fotoImagen} />
+          {photos.map((photo, index) => (
+            <View key={photo.uri} style={styles.photoBox}>
+              <Image source={{ uri: photo.uri }} style={styles.photoImage} />
               <Pressable
-                style={styles.fotoQuitar}
-                onPress={() => quitarFoto(indice)}
-                disabled={cargando}
+                style={styles.photoRemove}
+                onPress={() => removePhoto(index)}
+                disabled={loading}
               >
                 <Feather name="x" size={14} color={colors.white} />
               </Pressable>
             </View>
           ))}
 
-          {fotos.length < MAX_FOTOS_PARQUEADERO && (
+          {photos.length < MAX_PARKING_PHOTOS && (
             <Pressable
-              style={[styles.fotoCaja, styles.fotoAgregar]}
-              onPress={elegirFotos}
-              disabled={cargando}
+              style={[styles.photoBox, styles.photoAdd]}
+              onPress={pickPhotos}
+              disabled={loading}
             >
               <Feather name="plus" size={28} color={colors.textLight} />
             </Pressable>
           )}
         </ScrollView>
 
-        <Text style={styles.etiquetaCampo}>Título</Text>
+        <Text style={styles.fieldLabel}>Título</Text>
         <Field
-          value={titulo}
-          onChangeText={setTitulo}
+          value={title}
+          onChangeText={setTitle}
           placeholder="Ej: Garaje techado con vigilancia"
           autoCapitalize="sentences"
         />
 
-        <Text style={styles.etiquetaCampo}>Ubicación</Text>
+        <Text style={styles.fieldLabel}>Ubicación</Text>
         {/* Al confirmar el punto, se llenan la dirección y el barrio (se pueden corregir) */}
         <LocationPicker
-          value={ubicacion}
-          onChange={(nueva, encontrado) => {
-            setUbicacion(nueva);
-            if (encontrado.barrio) setBarrio(encontrado.barrio);
-            if (encontrado.direccion) setDireccion(encontrado.direccion);
+          value={location}
+          onChange={(newPassword, found) => {
+            setLocation(newPassword);
+            if (found.neighborhood) setNeighborhood(found.neighborhood);
+            if (found.address) setAddress(found.address);
           }}
         />
-        <View style={styles.espacioUbicacion} />
+        <View style={styles.locationSpacing} />
         <Field
-          value={barrio}
-          onChangeText={setBarrio}
+          value={neighborhood}
+          onChangeText={setNeighborhood}
           placeholder="Barrio"
           autoCapitalize="words"
         />
         <Field
-          value={direccion}
-          onChangeText={setDireccion}
+          value={address}
+          onChangeText={setAddress}
           placeholder="Dirección (Ej: Cra. 76 #44-20)"
           autoCapitalize="sentences"
         />
 
-        <Text style={styles.etiquetaCampo}>Precio por hora (COP)</Text>
+        <Text style={styles.fieldLabel}>Precio por hora (COP)</Text>
         <Field
-          value={precioHora}
-          onChangeText={setPrecioHora}
+          value={pricePerHour}
+          onChangeText={setPricePerHour}
           placeholder="Ej: 5000"
           keyboardType="number-pad"
         />
 
-        <Text style={styles.etiquetaCampo}>Características</Text>
-        <FeaturesPicker value={caracteristicas} onChange={setCaracteristicas} />
+        <Text style={styles.fieldLabel}>Características</Text>
+        <FeaturesPicker value={features} onChange={setFeatures} />
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        {progreso && (
-          <View style={styles.progreso}>
+        {progress && (
+          <View style={styles.progress}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.progresoTexto}>{progreso}</Text>
+            <Text style={styles.progressText}>{progress}</Text>
           </View>
         )}
 
-        <View style={styles.boton}>
+        <View style={styles.button}>
           <PrimaryButton
-            label={cargando ? "Publicando..." : "Publicar parqueadero"}
-            onPress={publicar}
-            disabled={cargando}
+            label={loading ? "Publicando..." : "Publicar parqueadero"}
+            onPress={publish}
+            disabled={loading}
           />
         </View>
       </ScrollView>
@@ -271,56 +271,56 @@ export function AddParkingScreen({ navigation }: AppScreenProps<"AddParking">) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  contenido: {
+  content: {
     paddingHorizontal: 24,
     paddingBottom: spacing.xl,
   },
-  titulo: {
+  title: {
     fontSize: 22,
     fontWeight: "700",
     color: colors.text,
   },
-  subtitulo: {
+  subtitle: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
   },
-  espacioUbicacion: {
+  locationSpacing: {
     height: spacing.sm,
   },
-  etiquetaCampo: {
+  fieldLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.text,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
-  ayudaFotos: {
+  photosHelp: {
     fontSize: 11,
     color: colors.textLight,
     marginBottom: spacing.sm,
   },
-  filaFotos: {
+  photosRow: {
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  fotoCaja: {
+  photoBox: {
     width: 96,
     height: 96,
     borderRadius: radius.lg,
   },
-  fotoImagen: {
+  photoImage: {
     width: 96,
     height: 96,
     borderRadius: radius.lg,
     backgroundColor: colors.imagePlaceholder,
   },
-  fotoQuitar: {
+  photoRemove: {
     position: "absolute",
     top: 4,
     right: 4,
@@ -331,18 +331,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.black,
   },
-  fotoAgregar: {
+  photoAdd: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.imagePlaceholder,
   },
-  progreso: {
+  progress: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     marginTop: spacing.md,
   },
-  progresoTexto: {
+  progressText: {
     fontSize: 12,
     color: colors.textLight,
   },
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: spacing.md,
   },
-  boton: {
+  button: {
     marginTop: spacing.lg,
   },
 });

@@ -3,12 +3,12 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "rea
 import MapView, { Marker, Region } from "react-native-maps";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { Ubicacion } from "../services/parking";
-import { UBICACION_POR_DEFECTO, direccionDe, obtenerMiUbicacion } from "../services/location";
+import type { Coordinates } from "../services/parking";
+import { DEFAULT_LOCATION, reverseGeocode, getMyLocation } from "../services/location";
 import { PrimaryButton } from "./ui";
 import { colors, radius, shadow, spacing } from "../styles/theme";
 
-const aRegion = (u: Ubicacion, delta = 0.005): Region => ({
+const toRegion = (u: Coordinates, delta = 0.005): Region => ({
   latitude: u.lat,
   longitude: u.lng,
   latitudeDelta: delta,
@@ -22,50 +22,50 @@ export function LocationPicker({
   value,
   onChange,
 }: {
-  value: Ubicacion | null;
-  onChange: (ubicacion: Ubicacion, encontrado: { direccion?: string; barrio?: string }) => void;
+  value: Coordinates | null;
+  onChange: (location: Coordinates, found: { address?: string; neighborhood?: string }) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const mapa = useRef<MapView>(null);
-  const [abierto, setAbierto] = useState(false);
+  const mapRef = useRef<MapView>(null);
+  const [isOpen, setIsOpen] = useState(false);
   // Región con la que abre la ventana del mapa
-  const [inicial, setInicial] = useState<Region | null>(null);
+  const [initial, setInitial] = useState<Region | null>(null);
   // Centro del mapa = donde está el pin
-  const [centro, setCentro] = useState<Ubicacion | null>(null);
-  const [buscando, setBuscando] = useState(false);
+  const [center, setCenter] = useState<Coordinates | null>(null);
+  const [searching, setSearching] = useState(false);
 
-  const abrir = async () => {
-    setAbierto(true);
-    setInicial(null);
+  const open = async () => {
+    setIsOpen(true);
+    setInitial(null);
 
     // Si ya tenía ubicación arranca ahí; si no, donde está el celular
-    const punto = value ?? (await obtenerMiUbicacion()) ?? UBICACION_POR_DEFECTO;
-    setInicial(aRegion(punto, value ? 0.004 : 0.01));
-    setCentro(punto);
+    const point = value ?? (await getMyLocation()) ?? DEFAULT_LOCATION;
+    setInitial(toRegion(point, value ? 0.004 : 0.01));
+    setCenter(point);
   };
 
-  const usarMiUbicacion = async () => {
-    const yo = await obtenerMiUbicacion();
-    if (yo) mapa.current?.animateToRegion(aRegion(yo), 400);
+  const centerOnMyLocation = async () => {
+    const me = await getMyLocation();
+    if (me) mapRef.current?.animateToRegion(toRegion(me), 400);
   };
 
-  const confirmar = async () => {
-    if (!centro) return;
-    setBuscando(true);
-    const encontrado = await direccionDe(centro);
-    setBuscando(false);
-    setAbierto(false);
-    onChange(centro, encontrado);
+  const confirm = async () => {
+    if (!center) return;
+    setSearching(true);
+    const found = await reverseGeocode(center);
+    setSearching(false);
+    setIsOpen(false);
+    onChange(center, found);
   };
 
   return (
     <View>
       {/* Vista previa: el punto marcado, o un aviso si todavía no tiene */}
-      <Pressable style={styles.previa} onPress={abrir}>
+      <Pressable style={styles.preview} onPress={open}>
         {value ? (
           <MapView
             style={StyleSheet.absoluteFill}
-            region={aRegion(value, 0.004)}
+            region={toRegion(value, 0.004)}
             liteMode
             scrollEnabled={false}
             zoomEnabled={false}
@@ -76,61 +76,61 @@ export function LocationPicker({
             <Marker coordinate={{ latitude: value.lat, longitude: value.lng }} />
           </MapView>
         ) : (
-          <View style={styles.previaVacia}>
+          <View style={styles.previewEmpty}>
             <Feather name="map-pin" size={22} color={colors.textLight} />
-            <Text style={styles.previaTexto}>Toca para marcar la ubicación en el mapa</Text>
+            <Text style={styles.previewText}>Toca para marcar la ubicación en el mapa</Text>
           </View>
         )}
       </Pressable>
       {value && (
-        <Pressable onPress={abrir}>
-          <Text style={styles.cambiar}>Cambiar ubicación</Text>
+        <Pressable onPress={open}>
+          <Text style={styles.change}>Cambiar ubicación</Text>
         </Pressable>
       )}
 
-      <Modal visible={abierto} animationType="slide" onRequestClose={() => setAbierto(false)}>
-        <View style={styles.ventana}>
-          {inicial ? (
+      <Modal visible={isOpen} animationType="slide" onRequestClose={() => setIsOpen(false)}>
+        <View style={styles.modalContainer}>
+          {initial ? (
             <MapView
-              ref={mapa}
+              ref={mapRef}
               style={StyleSheet.absoluteFill}
-              initialRegion={inicial}
+              initialRegion={initial}
               showsUserLocation
               showsMyLocationButton={false}
               toolbarEnabled={false}
-              onRegionChangeComplete={(r) => setCentro({ lat: r.latitude, lng: r.longitude })}
+              onRegionChangeComplete={(r) => setCenter({ lat: r.latitude, lng: r.longitude })}
             />
           ) : (
-            <ActivityIndicator style={styles.cargando} color={colors.primary} />
+            <ActivityIndicator style={styles.loading} color={colors.primary} />
           )}
 
           {/* Pin fijo en el centro: se mueve el mapa, no el pin */}
-          {inicial && (
-            <View style={styles.pinContenedor} pointerEvents="none">
+          {initial && (
+            <View style={styles.pinContainer} pointerEvents="none">
               <Ionicons name="location" size={44} color={colors.primary} />
             </View>
           )}
 
-          <View style={[styles.arriba, { top: insets.top + spacing.sm }]}>
-            <Pressable style={styles.botonRedondo} onPress={() => setAbierto(false)}>
+          <View style={[styles.topBar, { top: insets.top + spacing.sm }]}>
+            <Pressable style={styles.roundButton} onPress={() => setIsOpen(false)}>
               <Feather name="x" size={20} color={colors.text} />
             </Pressable>
-            <View style={styles.instruccion}>
-              <Text style={styles.instruccionTexto}>
+            <View style={styles.instruction}>
+              <Text style={styles.instructionText}>
                 Mueve el mapa hasta que el pin quede sobre la entrada de tu parqueadero
               </Text>
             </View>
           </View>
 
-          <View style={[styles.abajo, { paddingBottom: insets.bottom + spacing.md }]}>
-            <Pressable style={styles.miUbicacion} onPress={usarMiUbicacion}>
+          <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + spacing.md }]}>
+            <Pressable style={styles.myLocation} onPress={centerOnMyLocation}>
               <Feather name="navigation" size={16} color={colors.text} />
-              <Text style={styles.miUbicacionTexto}>Usar mi ubicación</Text>
+              <Text style={styles.myLocationText}>Usar mi ubicación</Text>
             </Pressable>
             <PrimaryButton
-              label={buscando ? "Buscando la dirección..." : "Confirmar ubicación"}
-              onPress={confirmar}
-              disabled={!centro || buscando}
+              label={searching ? "Buscando la dirección..." : "Confirmar ubicación"}
+              onPress={confirm}
+              disabled={!center || searching}
             />
           </View>
         </View>
@@ -140,39 +140,39 @@ export function LocationPicker({
 }
 
 const styles = StyleSheet.create({
-  previa: {
+  preview: {
     height: 140,
     borderRadius: radius.md,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  previaVacia: {
+  previewEmpty: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
     backgroundColor: colors.chip,
   },
-  previaTexto: {
+  previewText: {
     fontSize: 12,
     color: colors.textLight,
   },
-  cambiar: {
+  change: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.text,
     textDecorationLine: "underline",
     marginTop: spacing.sm,
   },
-  ventana: {
+  modalContainer: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  cargando: {
+  loading: {
     flex: 1,
   },
-  pinContenedor: {
+  pinContainer: {
     position: "absolute",
     top: 0,
     bottom: 0,
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     // El ícono se sube la mitad de su alto para que la punta quede justo en el centro
     paddingBottom: 44,
   },
-  arriba: {
+  topBar: {
     position: "absolute",
     left: 16,
     right: 16,
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  botonRedondo: {
+  roundButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...shadow,
   },
-  instruccion: {
+  instruction: {
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -208,11 +208,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
-  instruccionTexto: {
+  instructionText: {
     fontSize: 12,
     color: colors.text,
   },
-  abajo: {
+  bottomPanel: {
     position: "absolute",
     left: 0,
     right: 0,
@@ -224,14 +224,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
   },
-  miUbicacion: {
+  myLocation: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
     paddingVertical: 8,
   },
-  miUbicacionTexto: {
+  myLocationText: {
     fontSize: 13,
     fontWeight: "600",
     color: colors.text,

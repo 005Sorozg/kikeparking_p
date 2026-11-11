@@ -1,47 +1,47 @@
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import type { Usuario } from "../context/AuthContext";
+import type { User } from "../context/AuthContext";
 
 // Dónde se guarda la sesión:
 // - Celular: SecureStore (llavero cifrado del sistema: Keychain en iOS, Keystore en Android).
 // - Web: localStorage, porque SecureStore no existe en el navegador.
-const CLAVE = "kikeparking.sesion";
+const SESSION_KEY = "kikeparking.session";
 
-export interface Sesion {
+export interface Session {
   token: string;
-  usuario: Usuario;
+  user: User;
 }
 
-async function escribir(valor: string | null): Promise<void> {
+async function write(value: string | null): Promise<void> {
   if (Platform.OS === "web") {
     try {
-      if (valor === null) localStorage.removeItem(CLAVE);
-      else localStorage.setItem(CLAVE, valor);
+      if (value === null) localStorage.removeItem(SESSION_KEY);
+      else localStorage.setItem(SESSION_KEY, value);
     } catch {
       // Modo incógnito o almacenamiento bloqueado: la sesión dura hasta recargar.
     }
     return;
   }
 
-  if (valor === null) await SecureStore.deleteItemAsync(CLAVE);
-  else await SecureStore.setItemAsync(CLAVE, valor);
+  if (value === null) await SecureStore.deleteItemAsync(SESSION_KEY);
+  else await SecureStore.setItemAsync(SESSION_KEY, value);
 }
 
-async function leer(): Promise<string | null> {
+async function read(): Promise<string | null> {
   if (Platform.OS === "web") {
     try {
-      return localStorage.getItem(CLAVE);
+      return localStorage.getItem(SESSION_KEY);
     } catch {
       return null;
     }
   }
 
-  return SecureStore.getItemAsync(CLAVE);
+  return SecureStore.getItemAsync(SESSION_KEY);
 }
 
 // Lee la fecha de expiración ("exp", en segundos) que el backend pone dentro del token.
 // Solo se usa para no entrar con un token vencido; quien de verdad valida es el backend.
-function tokenVencido(token: string): boolean {
+function tokenExpired(token: string): boolean {
   try {
     // El token viene en "base64url": se pasa a base64 normal y se completa el relleno "="
     const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -53,27 +53,27 @@ function tokenVencido(token: string): boolean {
   }
 }
 
-export async function guardarSesion(sesion: Sesion): Promise<void> {
-  await escribir(JSON.stringify(sesion));
+export async function saveSession(session: Session): Promise<void> {
+  await write(JSON.stringify(session));
 }
 
-export async function borrarSesion(): Promise<void> {
-  await escribir(null);
+export async function clearSession(): Promise<void> {
+  await write(null);
 }
 
 // Devuelve la sesión guardada si existe y el token no ha vencido.
-export async function leerSesion(): Promise<Sesion | null> {
+export async function readSession(): Promise<Session | null> {
   try {
-    const guardada = await leer();
-    if (!guardada) return null;
+    const saved = await read();
+    if (!saved) return null;
 
-    const sesion = JSON.parse(guardada) as Sesion;
-    if (!sesion.token || !sesion.usuario || tokenVencido(sesion.token)) {
-      await borrarSesion();
+    const session = JSON.parse(saved) as Session;
+    if (!session.token || !session.user || tokenExpired(session.token)) {
+      await clearSession();
       return null;
     }
 
-    return sesion;
+    return session;
   } catch {
     return null;
   }

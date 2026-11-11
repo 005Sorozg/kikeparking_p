@@ -3,24 +3,24 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import MapView, { Marker, Region } from "react-native-maps";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import {
-  FiltrosParqueaderos,
-  Parqueadero,
-  Ubicacion,
-  formatearPrecio,
-  obtenerCercanos,
-  obtenerParqueaderos,
+  ParkingFilters,
+  ParkingSpot,
+  Coordinates,
+  formatPrice,
+  getNearby,
+  getParkingSpots,
 } from "../services/parking";
-import { UBICACION_POR_DEFECTO, obtenerMiUbicacion } from "../services/location";
+import { DEFAULT_LOCATION, getMyLocation } from "../services/location";
 import { ImagePlaceholder } from "./ui";
 import { colors, radius, shadow, spacing } from "../styles/theme";
 
 // Con el mapa más alejado que esto (en grados de latitud), se agrupan por barrio
-const ZOOM_BARRIOS = 0.06;
+const NEIGHBORHOOD_ZOOM = 0.06;
 
 // Región del mapa que deja ver todos los puntos, con un poco de margen
-export function regionQueIncluya(puntos: Ubicacion[], deltaMinimo = 0.01): Region {
-  const lats = puntos.map((p) => p.lat);
-  const lngs = puntos.map((p) => p.lng);
+export function regionContaining(points: Coordinates[], minDelta = 0.01): Region {
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
@@ -29,32 +29,32 @@ export function regionQueIncluya(puntos: Ubicacion[], deltaMinimo = 0.01): Regio
   return {
     latitude: (minLat + maxLat) / 2,
     longitude: (minLng + maxLng) / 2,
-    latitudeDelta: Math.max((maxLat - minLat) * 1.4, deltaMinimo),
-    longitudeDelta: Math.max((maxLng - minLng) * 1.4, deltaMinimo),
+    latitudeDelta: Math.max((maxLat - minLat) * 1.4, minDelta),
+    longitudeDelta: Math.max((maxLng - minLng) * 1.4, minDelta),
   };
 }
 
-interface GrupoBarrio {
-  barrio: string;
-  centro: Ubicacion;
-  puntos: Ubicacion[];
+interface NeighborhoodGroup {
+  neighborhood: string;
+  center: Coordinates;
+  points: Coordinates[];
 }
 
 // Junta los parqueaderos del mismo barrio en una sola burbuja (en el promedio de sus puntos)
-function agruparPorBarrio(parqueaderos: Parqueadero[]): GrupoBarrio[] {
-  const grupos = new Map<string, Ubicacion[]>();
+function groupByNeighborhood(mockParkingSpots: ParkingSpot[]): NeighborhoodGroup[] {
+  const groups = new Map<string, Coordinates[]>();
 
-  for (const p of parqueaderos) {
-    if (!p.ubicacion) continue;
-    grupos.set(p.barrio, [...(grupos.get(p.barrio) ?? []), p.ubicacion]);
+  for (const p of mockParkingSpots) {
+    if (!p.location) continue;
+    groups.set(p.neighborhood, [...(groups.get(p.neighborhood) ?? []), p.location]);
   }
 
-  return [...grupos.entries()].map(([barrio, puntos]) => ({
-    barrio,
-    puntos,
-    centro: {
-      lat: puntos.reduce((suma, p) => suma + p.lat, 0) / puntos.length,
-      lng: puntos.reduce((suma, p) => suma + p.lng, 0) / puntos.length,
+  return [...groups.entries()].map(([neighborhood, points]) => ({
+    neighborhood,
+    points,
+    center: {
+      lat: points.reduce((sum, p) => sum + p.lat, 0) / points.length,
+      lng: points.reduce((sum, p) => sum + p.lng, 0) / points.length,
     },
   }));
 }
@@ -62,57 +62,57 @@ function agruparPorBarrio(parqueaderos: Parqueadero[]): GrupoBarrio[] {
 // Mapa de Explorar. Alejado: burbujas por barrio con la cantidad. Cerca: el precio
 // de cada parqueadero; al tocarlo sale una tarjeta que abre el detalle.
 export function ExploreMap({
-  filtros,
-  onAbrir,
+  filters: filters,
+  onOpen: onOpen,
 }: {
-  filtros: FiltrosParqueaderos;
-  onAbrir: (id: string) => void;
+  filters: ParkingFilters;
+  onOpen: (id: string) => void;
 }) {
-  const mapa = useRef<MapView>(null);
+  const mapRef = useRef<MapView>(null);
   // Región con la que arranca (null mientras se busca la ubicación)
-  const [inicial, setInicial] = useState<Region | null>(null);
+  const [initial, setInitial] = useState<Region | null>(null);
   // Región que se ve ahora; cambia cuando el usuario mueve el mapa
   const [region, setRegion] = useState<Region | null>(null);
-  const [miUbicacion, setMiUbicacion] = useState<Ubicacion | null>(null);
-  const [parqueaderos, setParqueaderos] = useState<Parqueadero[]>([]);
-  const [seleccionado, setSeleccionado] = useState<Parqueadero | null>(null);
+  const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
+  const [mockParkingSpots, setMockParkingSpots] = useState<ParkingSpot[]>([]);
+  const [selected, setSelected] = useState<ParkingSpot | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Al abrir: ubicación del celular y los 10 parqueaderos más cercanos
   useEffect(() => {
-    let activo = true;
+    let active = true;
 
     (async () => {
-      const yo = await obtenerMiUbicacion();
-      const centro = yo ?? UBICACION_POR_DEFECTO;
-      let regionInicial: Region = {
-        latitude: centro.lat,
-        longitude: centro.lng,
+      const me = await getMyLocation();
+      const center = me ?? DEFAULT_LOCATION;
+      let initialRegion: Region = {
+        latitude: center.lat,
+        longitude: center.lng,
         latitudeDelta: 0.04,
         longitudeDelta: 0.04,
       };
 
       try {
-        const cercanos = await obtenerCercanos(centro, 10);
-        if (cercanos.length > 0) {
-          regionInicial = regionQueIncluya([
-            centro,
-            ...cercanos.map((p) => p.ubicacion!),
+        const nearby = await getNearby(center, 10);
+        if (nearby.length > 0) {
+          initialRegion = regionContaining([
+            center,
+            ...nearby.map((p) => p.location!),
           ]);
-          if (activo) setParqueaderos(cercanos);
+          if (active) setMockParkingSpots(nearby);
         }
       } catch {
         // Si falla, el mapa igual abre y carga lo que se vea en pantalla
       }
 
-      if (!activo) return;
-      setMiUbicacion(yo);
-      setInicial(regionInicial);
-      setRegion(regionInicial);
+      if (!active) return;
+      setMyLocation(me);
+      setInitial(initialRegion);
+      setRegion(initialRegion);
     })();
 
     return () => {
-      activo = false;
+      active = false;
     };
   }, []);
 
@@ -120,12 +120,12 @@ export function ExploreMap({
   // El retraso evita llamar al backend mientras el usuario todavía está arrastrando.
   useEffect(() => {
     if (!region) return;
-    let activo = true;
+    let active = true;
 
-    const temporizador = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
-        const datos = await obtenerParqueaderos({
-          ...filtros,
+        const data = await getParkingSpots({
+          ...filters,
           area: {
             minLat: region.latitude - region.latitudeDelta / 2,
             maxLat: region.latitude + region.latitudeDelta / 2,
@@ -133,32 +133,32 @@ export function ExploreMap({
             maxLng: region.longitude + region.longitudeDelta / 2,
           },
         });
-        if (activo) {
-          setParqueaderos(datos);
+        if (active) {
+          setMockParkingSpots(data);
           setError(null);
         }
       } catch (e) {
-        if (activo) {
+        if (active) {
           setError(e instanceof Error ? e.message : "No se pudo cargar el mapa.");
         }
       }
     }, 400);
 
     return () => {
-      activo = false;
-      clearTimeout(temporizador);
+      active = false;
+      clearTimeout(timer);
     };
-  }, [region, filtros]);
+  }, [region, filters]);
 
-  const alejado = (region?.latitudeDelta ?? 0) > ZOOM_BARRIOS;
-  const grupos = useMemo(() => agruparPorBarrio(parqueaderos), [parqueaderos]);
+  const zoomedOut = (region?.latitudeDelta ?? 0) > NEIGHBORHOOD_ZOOM;
+  const groups = useMemo(() => groupByNeighborhood(mockParkingSpots), [mockParkingSpots]);
 
-  const irAMiUbicacion = () => {
-    if (!miUbicacion) return;
-    mapa.current?.animateToRegion(
+  const goToMyLocation = () => {
+    if (!myLocation) return;
+    mapRef.current?.animateToRegion(
       {
-        latitude: miUbicacion.lat,
-        longitude: miUbicacion.lng,
+        latitude: myLocation.lat,
+        longitude: myLocation.lng,
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
       },
@@ -166,69 +166,69 @@ export function ExploreMap({
     );
   };
 
-  if (!inicial) {
+  if (!initial) {
     return (
-      <View style={styles.cargando}>
+      <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} />
-        <Text style={styles.cargandoTexto}>Buscando parqueaderos cerca de ti...</Text>
+        <Text style={styles.loadingText}>Buscando parqueaderos cerca de ti...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.contenedor}>
+    <View style={styles.container}>
       <MapView
-        ref={mapa}
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={inicial}
-        showsUserLocation={miUbicacion !== null}
+        initialRegion={initial}
+        showsUserLocation={myLocation !== null}
         showsMyLocationButton={false}
         toolbarEnabled={false}
         onRegionChangeComplete={setRegion}
         onPress={(e) => {
           // Tocar el mapa (no un marcador) cierra la tarjeta
-          if (e.nativeEvent.action !== "marker-press") setSeleccionado(null);
+          if (e.nativeEvent.action !== "marker-press") setSelected(null);
         }}
       >
-        {alejado
-          ? grupos.map((g) => (
+        {zoomedOut
+          ? groups.map((g) => (
               <Marker
-                key={`barrio-${g.barrio}`}
-                coordinate={{ latitude: g.centro.lat, longitude: g.centro.lng }}
+                key={`barrio-${g.neighborhood}`}
+                coordinate={{ latitude: g.center.lat, longitude: g.center.lng }}
                 onPress={() =>
                   // Al tocar la burbuja, se acerca a ese barrio
-                  mapa.current?.animateToRegion(regionQueIncluya(g.puntos, 0.02), 400)
+                  mapRef.current?.animateToRegion(regionContaining(g.points, 0.02), 400)
                 }
               >
-                <View style={styles.burbuja}>
-                  <View style={styles.burbujaCirculo}>
-                    <Text style={styles.burbujaCantidad}>{g.puntos.length}</Text>
+                <View style={styles.bubble}>
+                  <View style={styles.bubbleCircle}>
+                    <Text style={styles.bubbleCount}>{g.points.length}</Text>
                   </View>
-                  <Text style={styles.burbujaBarrio} numberOfLines={1}>
-                    {g.barrio}
+                  <Text style={styles.bubbleNeighborhood} numberOfLines={1}>
+                    {g.neighborhood}
                   </Text>
                 </View>
               </Marker>
             ))
-          : parqueaderos
-              .filter((p) => p.ubicacion)
+          : mockParkingSpots
+              .filter((p) => p.location)
               .map((p) => {
-                const activo = seleccionado?.id === p.id;
+                const active = selected?.id === p.id;
                 return (
                   <Marker
                     key={p.id}
-                    coordinate={{ latitude: p.ubicacion!.lat, longitude: p.ubicacion!.lng }}
-                    onPress={() => setSeleccionado(p)}
+                    coordinate={{ latitude: p.location!.lat, longitude: p.location!.lng }}
+                    onPress={() => setSelected(p)}
                   >
                     <View
                       style={[
-                        styles.precio,
-                        activo && styles.precioActivo,
-                        !p.disponible && styles.precioNoDisponible,
+                        styles.price,
+                        active && styles.priceActive,
+                        !p.available && styles.priceUnavailable,
                       ]}
                     >
-                      <Text style={[styles.precioTexto, activo && styles.precioTextoActivo]}>
-                        {formatearPrecio(p.precioHora)}
+                      <Text style={[styles.priceText, active && styles.priceTextActive]}>
+                        {formatPrice(p.pricePerHour)}
                       </Text>
                     </View>
                   </Marker>
@@ -237,49 +237,49 @@ export function ExploreMap({
       </MapView>
 
       {/* Arriba: cuántos hay en lo que se ve */}
-      <View style={styles.contador}>
-        <Text style={styles.contadorTexto}>
+      <View style={styles.counter}>
+        <Text style={styles.counterText}>
           {error ??
-            (parqueaderos.length === 0
+            (mockParkingSpots.length === 0
               ? "No hay parqueaderos en esta zona"
-              : `${parqueaderos.length} ${parqueaderos.length === 1 ? "parqueadero" : "parqueaderos"} en esta zona`)}
+              : `${mockParkingSpots.length} ${mockParkingSpots.length === 1 ? "parqueadero" : "parqueaderos"} en esta zona`)}
         </Text>
       </View>
 
-      {miUbicacion && (
+      {myLocation && (
         <Pressable
-          style={[styles.botonUbicacion, seleccionado && styles.botonUbicacionArriba]}
-          onPress={irAMiUbicacion}
+          style={[styles.locationButton, selected && styles.locationButtonRaised]}
+          onPress={goToMyLocation}
         >
           <Feather name="navigation" size={18} color={colors.text} />
         </Pressable>
       )}
 
       {/* Tarjeta del parqueadero tocado */}
-      {seleccionado && (
-        <Pressable style={styles.tarjeta} onPress={() => onAbrir(seleccionado.id)}>
-          <ImagePlaceholder style={styles.tarjetaFoto} iconSize={28} source={seleccionado.imagen} />
-          <View style={styles.tarjetaTextos}>
-            <Text style={styles.tarjetaTitulo} numberOfLines={1}>
-              {seleccionado.titulo}
+      {selected && (
+        <Pressable style={styles.card} onPress={() => onOpen(selected.id)}>
+          <ImagePlaceholder style={styles.cardPhoto} iconSize={28} source={selected.image} />
+          <View style={styles.cardTexts}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {selected.title}
             </Text>
-            <Text style={styles.tarjetaDetalle} numberOfLines={1}>
-              {seleccionado.barrio} · {seleccionado.direccion}
+            <Text style={styles.cardDetail} numberOfLines={1}>
+              {selected.neighborhood} · {selected.address}
             </Text>
-            <View style={styles.tarjetaFila}>
-              <Text style={styles.tarjetaPrecio}>
-                {formatearPrecio(seleccionado.precioHora)}
-                <Text style={styles.tarjetaUnidad}> / hora</Text>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardPrice}>
+                {formatPrice(selected.pricePerHour)}
+                <Text style={styles.cardUnit}> / hora</Text>
               </Text>
-              <View style={styles.tarjetaCalificacion}>
+              <View style={styles.cardRating}>
                 <Ionicons name="star" size={12} color={colors.black} />
-                <Text style={styles.tarjetaDetalle}>
-                  {seleccionado.resenas > 0 ? seleccionado.calificacion.toFixed(1) : "Nuevo"}
+                <Text style={styles.cardDetail}>
+                  {selected.reviewCount > 0 ? selected.rating.toFixed(1) : "Nuevo"}
                 </Text>
               </View>
             </View>
-            {!seleccionado.disponible && (
-              <Text style={styles.tarjetaNoDisponible}>No disponible por ahora</Text>
+            {!selected.available && (
+              <Text style={styles.cardUnavailable}>No disponible por ahora</Text>
             )}
           </View>
         </Pressable>
@@ -289,23 +289,23 @@ export function ExploreMap({
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
   },
-  cargando: {
+  loading: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
   },
-  cargandoTexto: {
+  loadingText: {
     fontSize: 12,
     color: colors.textLight,
   },
-  burbuja: {
+  bubble: {
     alignItems: "center",
   },
-  burbujaCirculo: {
+  bubbleCircle: {
     minWidth: 40,
     height: 40,
     paddingHorizontal: 8,
@@ -316,12 +316,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  burbujaCantidad: {
+  bubbleCount: {
     fontSize: 15,
     fontWeight: "700",
     color: colors.white,
   },
-  burbujaBarrio: {
+  bubbleNeighborhood: {
     marginTop: 3,
     maxWidth: 120,
     paddingHorizontal: 6,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     overflow: "hidden",
   },
-  precio: {
+  price: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: radius.full,
@@ -341,22 +341,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  precioActivo: {
+  priceActive: {
     backgroundColor: colors.text,
     borderColor: colors.text,
   },
-  precioNoDisponible: {
+  priceUnavailable: {
     opacity: 0.55,
   },
-  precioTexto: {
+  priceText: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.text,
   },
-  precioTextoActivo: {
+  priceTextActive: {
     color: colors.white,
   },
-  contador: {
+  counter: {
     position: "absolute",
     top: spacing.sm,
     alignSelf: "center",
@@ -366,12 +366,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
-  contadorTexto: {
+  counterText: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.text,
   },
-  botonUbicacion: {
+  locationButton: {
     position: "absolute",
     right: 16,
     bottom: 90,
@@ -383,10 +383,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...shadow,
   },
-  botonUbicacionArriba: {
+  locationButtonRaised: {
     bottom: 210,
   },
-  tarjeta: {
+  card: {
     position: "absolute",
     left: 16,
     right: 16,
@@ -398,46 +398,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
-  tarjetaFoto: {
+  cardPhoto: {
     width: 90,
     height: 90,
     borderRadius: radius.md,
   },
-  tarjetaTextos: {
+  cardTexts: {
     flex: 1,
     justifyContent: "center",
   },
-  tarjetaTitulo: {
+  cardTitle: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
   },
-  tarjetaDetalle: {
+  cardDetail: {
     fontSize: 12,
     color: colors.textLight,
     marginTop: 2,
   },
-  tarjetaFila: {
+  cardRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 6,
   },
-  tarjetaPrecio: {
+  cardPrice: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
   },
-  tarjetaUnidad: {
+  cardUnit: {
     fontSize: 12,
     fontWeight: "400",
   },
-  tarjetaCalificacion: {
+  cardRating: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
   },
-  tarjetaNoDisponible: {
+  cardUnavailable: {
     fontSize: 11,
     color: colors.primary,
     marginTop: 3,

@@ -3,8 +3,8 @@ import { apiRequest } from "./api";
 
 
 export type VehicleKind = "carro" | "moto";
-export type EstadoReserva = "pending_payment" | "confirmed" | "cancelled";
-export type FaseReserva =
+export type BookingStatus = "pending_payment" | "confirmed" | "cancelled";
+export type BookingPhase =
   | "pending_payment"
   | "expired"
   | "upcoming"
@@ -15,15 +15,15 @@ export type FaseReserva =
 // ---------- Datos reales (API) ----------
 
 // Así responde el backend (/bookings).
-interface ReservaApi {
+interface BookingApi {
   id: number;
   vehicleType: VehicleKind;
   startAt: string;
   endAt: string;
   hours: number;
   totalPrice: number;
-  status: EstadoReserva;
-  phase: FaseReserva;
+  status: BookingStatus;
+  phase: BookingPhase;
   paymentDeadline: string | null;
   payment: { brand: string; last4: string; paidAt: string } | null;
   refunded: boolean;
@@ -45,255 +45,255 @@ interface ReservaApi {
 }
 
 // Así la usan las pantallas.
-export interface Reserva {
+export interface Booking {
   id: number;
-  vehiculo: VehicleKind;
-  entrada: Date;
-  salida: Date;
-  horas: number;
+  vehicle: VehicleKind;
+  start: Date;
+  end: Date;
+  hours: number;
   total: number;
-  estado: EstadoReserva;
-  fase: FaseReserva;
+  status: BookingStatus;
+  phase: BookingPhase;
   // Hasta cuándo puede pagar (solo si está pendiente de pago)
-  limitePago: Date | null;
+  paymentDeadline: Date | null;
   // Con qué tarjeta se pagó (solo marca y últimos 4), o null si no se ha pagado
-  pago: { marca: string; ultimos4: string } | null;
+  payment: { brand: string; last4: string } | null;
   // Se canceló después de pagar y se devolvió el dinero
-  reembolsada: boolean;
-  parqueadero: {
+  refunded: boolean;
+  parkingSpot: {
     id: string;
-    titulo: string;
-    barrio: string;
-    direccion: string;
-    imagen?: ImageSourcePropType;
+    title: string;
+    neighborhood: string;
+    address: string;
+    image?: ImageSourcePropType;
   };
-  conductor: {
+  driver: {
     id: number;
-    nombre: string;
-    calificacion: number;
-    resenas: number;
+    name: string;
+    rating: number;
+    reviewCount: number;
   };
   // Estrellas que puse yo en esta reserva, o null si todavía no califico
-  miCalificacion: number | null;
+  myRating: number | null;
 }
 
-const aReserva = (r: ReservaApi): Reserva => ({
+const toBooking = (r: BookingApi): Booking => ({
   id: r.id,
-  vehiculo: r.vehicleType,
-  entrada: new Date(r.startAt),
-  salida: new Date(r.endAt),
-  horas: r.hours,
+  vehicle: r.vehicleType,
+  start: new Date(r.startAt),
+  end: new Date(r.endAt),
+  hours: r.hours,
   total: r.totalPrice,
-  estado: r.status,
-  fase: r.phase,
-  limitePago: r.paymentDeadline ? new Date(r.paymentDeadline) : null,
-  pago: r.payment ? { marca: r.payment.brand, ultimos4: r.payment.last4 } : null,
-  reembolsada: r.refunded ?? false,
-  parqueadero: {
+  status: r.status,
+  phase: r.phase,
+  paymentDeadline: r.paymentDeadline ? new Date(r.paymentDeadline) : null,
+  payment: r.payment ? { brand: r.payment.brand, last4: r.payment.last4 } : null,
+  refunded: r.refunded ?? false,
+  parkingSpot: {
     id: String(r.parkingSpot.id),
-    titulo: r.parkingSpot.title,
-    barrio: r.parkingSpot.neighborhood,
-    direccion: r.parkingSpot.address,
-        imagen: r.parkingSpot.photoUrl ? { uri: r.parkingSpot.photoUrl } : undefined,
+    title: r.parkingSpot.title,
+    neighborhood: r.parkingSpot.neighborhood,
+    address: r.parkingSpot.address,
+        image: r.parkingSpot.photoUrl ? { uri: r.parkingSpot.photoUrl } : undefined,
   },
-  conductor: {
+  driver: {
     id: r.driver.id,
-    nombre: r.driver.name,
-    calificacion: r.driver.rating,
-    resenas: r.driver.reviewCount,
+    name: r.driver.name,
+    rating: r.driver.rating,
+    reviewCount: r.driver.reviewCount,
   },
-  miCalificacion: r.myReview?.rating ?? null,
+  myRating: r.myReview?.rating ?? null,
 });
 
-export interface DatosReserva {
-  parqueaderoId: string;
-  vehiculo: VehicleKind;
-  entrada: Date;
-  horas: number;
+export interface BookingInput {
+  parkingSpotId: string;
+  vehicle: VehicleKind;
+  start: Date;
+  hours: number;
 }
 
 // POST /bookings (solo conductores). El precio lo calcula el backend.
-export async function crearReserva(
-  datos: DatosReserva,
+export async function createBooking(
+  data: BookingInput,
   token: string,
-): Promise<Reserva> {
-  const dato = await apiRequest<ReservaApi>("/bookings", {
+): Promise<Booking> {
+  const result = await apiRequest<BookingApi>("/bookings", {
     method: "POST",
     token,
     body: {
-      parkingSpotId: Number(datos.parqueaderoId),
-      vehicleType: datos.vehiculo,
+      parkingSpotId: Number(data.parkingSpotId),
+      vehicleType: data.vehicle,
       // toISOString va en UTC; el backend guarda la hora exacta sin importar la zona.
-      startAt: datos.entrada.toISOString(),
-      hours: datos.horas,
+      startAt: data.start.toISOString(),
+      hours: data.hours,
     },
   });
 
-  return aReserva(dato);
+  return toBooking(result);
 }
 
 // GET /bookings/mine (conductor): las reservas que hizo.
-export async function obtenerMisReservas(token: string): Promise<Reserva[]> {
-  const datos = await apiRequest<ReservaApi[]>("/bookings/mine", { token });
+export async function getMyBookings(token: string): Promise<Booking[]> {
+  const data = await apiRequest<BookingApi[]>("/bookings/mine", { token });
 
-  return datos.map(aReserva);
+  return data.map(toBooking);
 }
 
-export async function obtenerReservasRecibidas(
+export async function getReceivedBookings(
   token: string,
-  parqueaderoId?: string,
-): Promise<Reserva[]> {
-  const filtro = parqueaderoId ? `?parkingSpotId=${parqueaderoId}` : "";
-  const datos = await apiRequest<ReservaApi[]>(`/bookings/received${filtro}`, {
+  parkingSpotId?: string,
+): Promise<Booking[]> {
+  const filter = parkingSpotId ? `?parkingSpotId=${parkingSpotId}` : "";
+  const data = await apiRequest<BookingApi[]>(`/bookings/received${filter}`, {
     token,
   });
 
-  return datos.map(aReserva);
+  return data.map(toBooking);
 }
 
 // PATCH /bookings/:id/cancel (el conductor que reservó o el dueño).
-export async function cancelarReserva(
+export async function cancelBooking(
   id: number,
   token: string,
-): Promise<Reserva> {
-  const dato = await apiRequest<ReservaApi>(`/bookings/${id}/cancel`, {
+): Promise<Booking> {
+  const result = await apiRequest<BookingApi>(`/bookings/${id}/cancel`, {
     method: "PATCH",
     token,
   });
 
-  return aReserva(dato);
+  return toBooking(result);
 }
 
-export interface DatosTarjeta {
-  numero: string;
+export interface CardData {
+  cardNumber: string;
   // "MM/AA"
-  vencimiento: string;
+  expiry: string;
   cvc: string;
-  nombre: string;
+  name: string;
 }
 
 // POST /bookings/:id/pay (pasarela simulada). Si el "banco" la rechaza, el backend
 // responde con error y la reserva sigue pendiente para intentar con otra tarjeta.
-export async function pagarReserva(
+export async function payBooking(
   id: number,
-  tarjeta: DatosTarjeta,
+  card: CardData,
   token: string,
-): Promise<Reserva> {
-  const dato = await apiRequest<ReservaApi>(`/bookings/${id}/pay`, {
+): Promise<Booking> {
+  const result = await apiRequest<BookingApi>(`/bookings/${id}/pay`, {
     method: "POST",
     token,
     body: {
-      cardNumber: tarjeta.numero,
-      expiry: tarjeta.vencimiento,
-      cvc: tarjeta.cvc,
-      holderName: tarjeta.nombre,
+      cardNumber: card.cardNumber,
+      expiry: card.expiry,
+      cvc: card.cvc,
+      holderName: card.name,
     },
   });
 
-  return aReserva(dato);
+  return toBooking(result);
 }
 
-export interface HorarioOcupado {
-  entrada: Date;
-  salida: Date;
+export interface BusySlot {
+  start: Date;
+  end: Date;
 }
 
 // GET /bookings/occupied?parkingSpotId=: horarios ya reservados de un parqueadero.
-export async function obtenerHorariosOcupados(
-  parqueaderoId: string,
+export async function getBusySlots(
+  parkingSpotId: string,
   token: string,
-): Promise<HorarioOcupado[]> {
-  const datos = await apiRequest<{ startAt: string; endAt: string }[]>(
-    `/bookings/occupied?parkingSpotId=${parqueaderoId}`,
+): Promise<BusySlot[]> {
+  const data = await apiRequest<{ startAt: string; endAt: string }[]>(
+    `/bookings/occupied?parkingSpotId=${parkingSpotId}`,
     { token },
   );
 
-  return datos.map((d) => ({
-    entrada: new Date(d.startAt),
-    salida: new Date(d.endAt),
+  return data.map((d) => ({
+    start: new Date(d.startAt),
+    end: new Date(d.endAt),
   }));
 }
 
 // ---------- Formato de fechas ----------
 
-const MESES = [
+const MONTHS = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
 ];
 
-const mismoDia = (a: Date, b: Date) =>
+const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
 // "7 de nov."
-export const formatearFecha = (fecha: Date) =>
-  `${fecha.getDate()} de ${MESES[fecha.getMonth()]}.`;
+export const formatDate = (date: Date) =>
+  `${date.getDate()} de ${MONTHS[date.getMonth()]}.`;
 
 // "8:00 a. m."
-export const formatearHora = (fecha: Date) => {
-  const h = fecha.getHours();
-  const m = String(fecha.getMinutes()).padStart(2, "0");
+export const formatHour = (date: Date) => {
+  const h = date.getHours();
+  const m = String(date.getMinutes()).padStart(2, "0");
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${m} ${h < 12 ? "a. m." : "p. m."}`;
 };
 
 // "7 de nov. · 8:00 a. m. - 11:00 a. m." o, si pasa a otro día,
 // "7 de nov. 8:00 p. m. - 8 de nov. 2:00 a. m."
-export const formatearRango = (entrada: Date, salida: Date) => {
-  if (mismoDia(entrada, salida)) {
-    return `${formatearFecha(entrada)} · ${formatearHora(entrada)} - ${formatearHora(salida)}`;
+export const formatRange = (start: Date, end: Date) => {
+  if (sameDay(start, end)) {
+    return `${formatDate(start)} · ${formatHour(start)} - ${formatHour(end)}`;
   }
-  return `${formatearFecha(entrada)} ${formatearHora(entrada)} - ${formatearFecha(salida)} ${formatearHora(salida)}`;
+  return `${formatDate(start)} ${formatHour(start)} - ${formatDate(end)} ${formatHour(end)}`;
 };
 
 // Una pendiente cuyo tiempo para pagar ya pasó se muestra como vencida sin recargar.
-export const faseActual = (reserva: Reserva): FaseReserva =>
-  reserva.fase === "pending_payment" &&
-  reserva.limitePago &&
-  reserva.limitePago.getTime() <= Date.now()
+export const currentPhase = (booking: Booking): BookingPhase =>
+  booking.phase === "pending_payment" &&
+  booking.paymentDeadline &&
+  booking.paymentDeadline.getTime() <= Date.now()
     ? "expired"
-    : reserva.fase;
+    : booking.phase;
 
 // Cuenta regresiva para pagar: "9:05"
-export const tiempoParaPagar = (limite: Date) => {
-  const segundos = Math.max(0, Math.floor((limite.getTime() - Date.now()) / 1000));
-  return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, "0")}`;
+export const timeToPay = (limit: Date) => {
+  const seconds = Math.max(0, Math.floor((limit.getTime() - Date.now()) / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
 
 // Próxima = confirmada y todavía no empieza.
-export const esProxima = (reserva: Reserva) => reserva.fase === "upcoming";
+export const isUpcoming = (booking: Booking) => booking.phase === "upcoming";
 
 // Para una reserva en curso: "1 h 20 min" o "35 min" hasta la salida.
-export const tiempoRestante = (salida: Date) => {
-  const minutos = Math.max(0, Math.round((salida.getTime() - Date.now()) / 60000));
-  const horas = Math.floor(minutos / 60);
-  const resto = minutos % 60;
+export const timeLeft = (end: Date) => {
+  const minutes = Math.max(0, Math.round((end.getTime() - Date.now()) / 60000));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
 
-  if (horas === 0) return `${resto} min`;
-  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 };
 
 // ---------- Estadísticas (vista del propietario) ----------
 
-export interface Estadisticas {
+export interface Stats {
   // Reservas confirmadas, o sea pagadas (las pendientes y canceladas no cuentan)
   total: number;
-  proximas: number;
-  horas: number;
+  upcomingBookings: number;
+  hours: number;
   // Suma de las confirmadas, incluidas las que aún no ocurren
-  ingresos: number;
-  canceladas: number;
+  earnings: number;
+  cancelledBookings: number;
 }
 
-export const calcularEstadisticas = (reservas: Reserva[]): Estadisticas => {
-  const confirmadas = reservas.filter((r) => r.estado === "confirmed");
+export const calculateStats = (bookings: Booking[]): Stats => {
+  const confirmed = bookings.filter((r) => r.status === "confirmed");
 
   return {
-    total: confirmadas.length,
-    proximas: confirmadas.filter(esProxima).length,
-    horas: confirmadas.reduce((suma, r) => suma + r.horas, 0),
-    ingresos: confirmadas.reduce((suma, r) => suma + r.total, 0),
-        canceladas: reservas.filter((r) => r.estado === "cancelled").length,
+    total: confirmed.length,
+    upcomingBookings: confirmed.filter(isUpcoming).length,
+    hours: confirmed.reduce((sum, r) => sum + r.hours, 0),
+    earnings: confirmed.reduce((sum, r) => sum + r.total, 0),
+        cancelledBookings: bookings.filter((r) => r.status === "cancelled").length,
   };
 };

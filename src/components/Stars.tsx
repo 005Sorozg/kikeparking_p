@@ -3,13 +3,13 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../styles/theme";
 
-const ESTRELLAS = [1, 2, 3, 4, 5];
+const STARS = [1, 2, 3, 4, 5];
 
 // Estrellas de solo lectura (ej: ★★★★☆ en una reseña).
 export function Stars({ value, size = 12 }: { value: number; size?: number }) {
   return (
-    <View style={styles.fila}>
-      {ESTRELLAS.map((n) => (
+    <View style={styles.row}>
+      {STARS.map((n) => (
         <Ionicons
           key={n}
           name={n <= Math.round(value) ? "star" : "star-outline"}
@@ -27,11 +27,11 @@ export function StarPicker({
   onChange,
 }: {
   value: number;
-  onChange: (valor: number) => void;
+  onChange: (value: number) => void;
 }) {
   return (
-    <View style={[styles.fila, styles.selector]}>
-      {ESTRELLAS.map((n) => (
+    <View style={[styles.row, styles.selector]}>
+      {STARS.map((n) => (
         <Pressable key={n} hitSlop={6} onPress={() => onChange(n)}>
           <Ionicons
             name={n <= value ? "star" : "star-outline"}
@@ -45,7 +45,7 @@ export function StarPicker({
 }
 
 const styles = StyleSheet.create({
-  fila: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 2,

@@ -10,18 +10,18 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import type { AppScreenProps } from "../types/navigation";
-import { formatearPrecio } from "../services/parking";
+import { formatPrice } from "../services/parking";
 import {
-  FaseReserva,
-  Reserva,
-  cancelarReserva,
-  esProxima,
-  faseActual,
-  formatearRango,
-  obtenerMisReservas,
-  obtenerReservasRecibidas,
-  tiempoParaPagar,
-  tiempoRestante,
+  BookingPhase,
+  Booking,
+  cancelBooking,
+  isUpcoming,
+  currentPhase,
+  formatRange,
+  getMyBookings,
+  getReceivedBookings,
+  timeToPay,
+  timeLeft,
 } from "../services/bookings";
 import { BookingPhaseTag } from "../components/BookingPhaseTag";
 import { ReviewModal } from "../components/ReviewModal";
@@ -32,33 +32,33 @@ import { colors, radius, spacing } from "../styles/theme";
 
 // Cada filtro muestra las reservas de uno o más estados
 // (las pendientes de pago van con las próximas y las vencidas con las canceladas)
-const FILTROS: { id: FaseReserva; incluye: FaseReserva[]; etiqueta: string; vacio: string }[] = [
-  { id: "upcoming", incluye: ["upcoming", "pending_payment"], etiqueta: "Próximas", vacio: "No tienes reservas próximas." },
-  { id: "in_progress", incluye: ["in_progress"], etiqueta: "En curso", vacio: "No hay reservas en curso ahora." },
-  { id: "completed", incluye: ["completed"], etiqueta: "Completadas", vacio: "Todavía no hay reservas completadas." },
-  { id: "cancelled", incluye: ["cancelled", "expired"], etiqueta: "Canceladas", vacio: "No hay reservas canceladas." },
+const FILTERS: { id: BookingPhase; includes: BookingPhase[]; label: string; empty: string }[] = [
+  { id: "upcoming", includes: ["upcoming", "pending_payment"], label: "Próximas", empty: "No tienes reservas próximas." },
+  { id: "in_progress", includes: ["in_progress"], label: "En curso", empty: "No hay reservas en curso ahora." },
+  { id: "completed", includes: ["completed"], label: "Completadas", empty: "Todavía no hay reservas completadas." },
+  { id: "cancelled", includes: ["cancelled", "expired"], label: "Canceladas", empty: "No hay reservas canceladas." },
 ];
 
 // Reservas: el conductor ve las que hizo y el propietario las que recibió.
 export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
-  const { usuario, token } = useAuth();
-  const esPropietario = usuario?.role === "propietario";
-  const [filtro, setFiltro] = useState<FaseReserva>("upcoming");
-  const [reservas, setReservas] = useState<Reserva[] | null>(null);
+  const { user: user, token } = useAuth();
+  const isOwner = user?.role === "propietario";
+  const [filter, setFilter] = useState<BookingPhase>("upcoming");
+  const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Reserva que está pidiendo confirmación para cancelarse.
-  const [confirmando, setConfirmando] = useState<number | null>(null);
-  const [cancelando, setCancelando] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState<number | null>(null);
+  const [cancelling, setCancelling] = useState<number | null>(null);
   // Reserva que se está calificando (abre la ventana de calificar)
-  const [calificando, setCalificando] = useState<Reserva | null>(null);
+  const [reviewingBooking, setReviewingBooking] = useState<Booking | null>(null);
   // Si hay alguna pendiente de pago, se redibuja cada segundo para la cuenta regresiva
-  const hayPendientes = (reservas ?? []).some((r) => faseActual(r) === "pending_payment");
+  const hasPending = (bookings ?? []).some((r) => currentPhase(r) === "pending_payment");
   const [, setTic] = useState(0);
   useEffect(() => {
-    if (!hayPendientes) return;
-    const intervalo = setInterval(() => setTic((t) => t + 1), 1000);
-    return () => clearInterval(intervalo);
-  }, [hayPendientes]);
+    if (!hasPending) return;
+    const interval = setInterval(() => setTic((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [hasPending]);
 
   // Se recarga cada vez que la pantalla se vuelve a mostrar.
   useFocusEffect(
@@ -68,18 +68,18 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
         return;
       }
 
-      let activo = true;
-      const pedir = esPropietario ? obtenerReservasRecibidas : obtenerMisReservas;
+      let active = true;
+      const request = isOwner ? getReceivedBookings : getMyBookings;
 
-      pedir(token)
-        .then((datos) => {
-          if (activo) {
-            setReservas(datos);
+      request(token)
+        .then((data) => {
+          if (active) {
+            setBookings(data);
             setError(null);
           }
         })
         .catch((e) => {
-          if (activo) {
+          if (active) {
             setError(
               e instanceof Error ? e.message : "No se pudieron cargar las reservas.",
             );
@@ -87,43 +87,43 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
         });
 
       return () => {
-        activo = false;
+        active = false;
       };
-    }, [token, esPropietario]),
+    }, [token, isOwner]),
   );
 
-  const cancelar = async (id: number) => {
+  const cancel = async (id: number) => {
     if (!token) return;
 
-    setCancelando(id);
+    setCancelling(id);
     try {
-      const actualizada = await cancelarReserva(id, token);
-      setReservas((actuales) =>
-        (actuales ?? []).map((r) => (r.id === id ? actualizada : r)),
+      const updated = await cancelBooking(id, token);
+      setBookings((current) =>
+        (current ?? []).map((r) => (r.id === id ? updated : r)),
       );
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cancelar la reserva.");
     } finally {
-      setCancelando(null);
-      setConfirmando(null);
+      setCancelling(null);
+      setConfirming(null);
     }
   };
 
-  const incluidas = FILTROS.find((f) => f.id === filtro)?.incluye ?? [];
-  const visibles = (reservas ?? [])
-    .filter((r) => incluidas.includes(faseActual(r)))
+  const included = FILTERS.find((f) => f.id === filter)?.includes ?? [];
+  const visibleItems = (bookings ?? [])
+    .filter((r) => included.includes(currentPhase(r)))
     // Próximas y en curso: la más cercana primero. Las demás: la más reciente primero.
     .sort((a, b) =>
-      filtro === "upcoming" || filtro === "in_progress"
-        ? a.entrada.getTime() - b.entrada.getTime()
-        : b.entrada.getTime() - a.entrada.getTime(),
+      filter === "upcoming" || filter === "in_progress"
+        ? a.start.getTime() - b.start.getTime()
+        : b.start.getTime() - a.start.getTime(),
     );
 
   return (
-    <View style={styles.contenedor}>
-      <Text style={styles.titulo}>
-        {esPropietario ? "Reservas recibidas" : "Reservas"}
+    <View style={styles.container}>
+      <Text style={styles.title}>
+        {isOwner ? "Reservas recibidas" : "Reservas"}
       </Text>
 
       <View>
@@ -132,169 +132,169 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chips}
         >
-          {FILTROS.map((f) => (
+          {FILTERS.map((f) => (
             <Chip
               key={f.id}
-              label={f.etiqueta}
+              label={f.label}
               variant="filled"
-              selected={filtro === f.id}
-              onPress={() => setFiltro(f.id)}
+              selected={filter === f.id}
+              onPress={() => setFilter(f.id)}
             />
           ))}
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.lista}>
+      <ScrollView contentContainerStyle={styles.list}>
         {error && <Text style={styles.error}>{error}</Text>}
 
-        {!reservas && !error && <ActivityIndicator color={colors.primary} />}
+        {!bookings && !error && <ActivityIndicator color={colors.primary} />}
 
-        {reservas && visibles.length === 0 && (
-          <Text style={styles.vacio}>
-            {FILTROS.find((f) => f.id === filtro)?.vacio}
+        {bookings && visibleItems.length === 0 && (
+          <Text style={styles.empty}>
+            {FILTERS.find((f) => f.id === filter)?.empty}
           </Text>
         )}
 
-        {visibles.map((r) => {
-          const fase = faseActual(r);
-          const cancelada = r.estado === "cancelled" || fase === "expired";
-          const pendiente = fase === "pending_payment";
+        {visibleItems.map((r) => {
+          const phase = currentPhase(r);
+          const isCancelled = r.status === "cancelled" || phase === "expired";
+          const pending = phase === "pending_payment";
           // Se puede cancelar mientras no haya empezado (pagada o pendiente de pago)
-          const cancelable = esProxima(r) || pendiente;
+          const cancelable = isUpcoming(r) || pending;
           return (
-            <View key={r.id} style={styles.fila}>
+            <View key={r.id} style={styles.row}>
               <ImagePlaceholder
-                style={styles.foto}
+                style={styles.photo}
                 iconSize={26}
-                source={r.parqueadero.imagen}
+                source={r.parkingSpot.image}
               />
-              <View style={styles.textos}>
-                <Text style={styles.nombre} numberOfLines={1}>
-                  {r.parqueadero.titulo}
+              <View style={styles.texts}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {r.parkingSpot.title}
                 </Text>
-                <Text style={styles.detalle}>
-                  {esPropietario
-                    ? `Reservó ${r.conductor.nombre}${
-                        r.conductor.resenas > 0
-                          ? ` · ★ ${r.conductor.calificacion.toFixed(1)}`
+                <Text style={styles.detail}>
+                  {isOwner
+                    ? `Reservó ${r.driver.name}${
+                        r.driver.reviewCount > 0
+                          ? ` · ★ ${r.driver.rating.toFixed(1)}`
                           : ""
                       }`
-                    : `${r.parqueadero.barrio} · ${r.parqueadero.direccion}`}
+                    : `${r.parkingSpot.neighborhood} · ${r.parkingSpot.address}`}
                 </Text>
-                <Text style={styles.detalle}>
-                  {formatearRango(r.entrada, r.salida)}
+                <Text style={styles.detail}>
+                  {formatRange(r.start, r.end)}
                 </Text>
-                <View style={styles.vehiculo}>
+                <View style={styles.vehicle}>
                   <Feather
-                    name={r.vehiculo === "carro" ? "truck" : "navigation"}
+                    name={r.vehicle === "carro" ? "truck" : "navigation"}
                     size={11}
                     color={colors.textLight}
                   />
-                  <Text style={styles.detalle}>
-                    {r.vehiculo === "carro" ? "Carro" : "Moto"} · {r.horas}{" "}
-                    {r.horas === 1 ? "hora" : "horas"}
+                  <Text style={styles.detail}>
+                    {r.vehicle === "carro" ? "Carro" : "Moto"} · {r.hours}{" "}
+                    {r.hours === 1 ? "hora" : "horas"}
                   </Text>
                 </View>
 
-                <BookingPhaseTag fase={fase} />
+                <BookingPhaseTag phase={phase} />
 
                 {/* Pendiente de pago: el conductor paga, el propietario espera */}
-                {pendiente && r.limitePago && (
-                  <Text style={styles.porPagar}>
-                    {esPropietario
+                {pending && r.paymentDeadline && (
+                  <Text style={styles.unpaid}>
+                    {isOwner
                       ? "Esperando el pago del conductor"
-                      : `Te quedan ${tiempoParaPagar(r.limitePago)} para pagar`}
+                      : `Te quedan ${timeToPay(r.paymentDeadline)} para pagar`}
                   </Text>
                 )}
-                {pendiente && !esPropietario && r.limitePago && (
+                {pending && !isOwner && r.paymentDeadline && (
                   <Pressable
                     onPress={() =>
                       navigation.navigate("Payment", {
-                        reservaId: r.id,
-                        titulo: r.parqueadero.titulo,
+                        bookingId: r.id,
+                        title: r.parkingSpot.title,
                         total: r.total,
-                        limitePago: r.limitePago!.toISOString(),
+                        paymentDeadline: r.paymentDeadline!.toISOString(),
                       })
                     }
                   >
-                    <Text style={styles.accion}>Pagar ahora</Text>
+                    <Text style={styles.action}>Pagar ahora</Text>
                   </Pressable>
                 )}
 
                 {/* Con qué se pagó (solo lo ve el conductor) */}
-                {!esPropietario && r.pago && (
-                  <Text style={styles.detalle}>
-                    {r.reembolsada ? "Reembolsada a" : "Pagada con"} {r.pago.marca} ••••{" "}
-                    {r.pago.ultimos4}
+                {!isOwner && r.payment && (
+                  <Text style={styles.detail}>
+                    {r.refunded ? "Reembolsada a" : "Pagada con"} {r.payment.brand} ••••{" "}
+                    {r.payment.last4}
                   </Text>
                 )}
-                {r.fase === "in_progress" && (
-                  <Text style={styles.restante}>
-                    Termina en {tiempoRestante(r.salida)}
+                {r.phase === "in_progress" && (
+                  <Text style={styles.remaining}>
+                    Termina en {timeLeft(r.end)}
                   </Text>
                 )}
 
                 {/* Completada: calificar una vez, o ver cuántas estrellas puse */}
-                {r.fase === "completed" && r.miCalificacion !== null && (
-                  <View style={styles.calificada}>
-                    <Text style={styles.detalle}>Calificaste</Text>
-                    <Stars value={r.miCalificacion} size={11} />
+                {r.phase === "completed" && r.myRating !== null && (
+                  <View style={styles.rated}>
+                    <Text style={styles.detail}>Calificaste</Text>
+                    <Stars value={r.myRating} size={11} />
                   </View>
                 )}
-                {r.fase === "completed" && r.miCalificacion === null && (
-                  <Pressable onPress={() => setCalificando(r)}>
-                    <Text style={styles.accion}>
-                      {esPropietario ? "Calificar conductor" : "Calificar"}
+                {r.phase === "completed" && r.myRating === null && (
+                  <Pressable onPress={() => setReviewingBooking(r)}>
+                    <Text style={styles.action}>
+                      {isOwner ? "Calificar conductor" : "Calificar"}
                     </Text>
                   </Pressable>
                 )}
 
-                {cancelable && confirmando !== r.id && (
-                  <Pressable onPress={() => setConfirmando(r.id)}>
-                    <Text style={styles.accion}>Cancelar reserva</Text>
+                {cancelable && confirming !== r.id && (
+                  <Pressable onPress={() => setConfirming(r.id)}>
+                    <Text style={styles.action}>Cancelar reserva</Text>
                   </Pressable>
                 )}
 
-                {cancelable && confirmando === r.id && (
-                  <View style={styles.confirmar}>
-                    <Text style={styles.detalle}>¿Seguro?</Text>
+                {cancelable && confirming === r.id && (
+                  <View style={styles.confirm}>
+                    <Text style={styles.detail}>¿Seguro?</Text>
                     <Pressable
-                      onPress={() => cancelar(r.id)}
-                      disabled={cancelando === r.id}
+                      onPress={() => cancel(r.id)}
+                      disabled={cancelling === r.id}
                     >
-                      <Text style={styles.accion}>
-                        {cancelando === r.id ? "Cancelando..." : "Sí, cancelar"}
+                      <Text style={styles.action}>
+                        {cancelling === r.id ? "Cancelando..." : "Sí, cancelar"}
                       </Text>
                     </Pressable>
-                    <Pressable onPress={() => setConfirmando(null)}>
-                      <Text style={styles.accionSecundaria}>No</Text>
+                    <Pressable onPress={() => setConfirming(null)}>
+                      <Text style={styles.secondaryAction}>No</Text>
                     </Pressable>
                   </View>
                 )}
               </View>
-              <Text style={[styles.precio, cancelada && styles.precioTachado]}>
-                {formatearPrecio(r.total)}
+              <Text style={[styles.price, isCancelled && styles.priceStrikethrough]}>
+                {formatPrice(r.total)}
               </Text>
             </View>
           );
         })}
       </ScrollView>
       <ReviewModal
-        reservaId={calificando?.id ?? null}
-        titulo={
-          esPropietario
-            ? `¿Cómo fue ${calificando?.conductor.nombre ?? ""} como conductor?`
-            : `¿Qué tal ${calificando?.parqueadero.titulo ?? "el parqueadero"}?`
+        bookingId={reviewingBooking?.id ?? null}
+        title={
+          isOwner
+            ? `¿Cómo fue ${reviewingBooking?.driver.name ?? ""} como conductor?`
+            : `¿Qué tal ${reviewingBooking?.parkingSpot.title ?? "el parqueadero"}?`
         }
-        onClose={() => setCalificando(null)}
-        onRated={(id, estrellas) => {
+        onClose={() => setReviewingBooking(null)}
+        onRated={(id, stars) => {
           // Se marca como calificada sin volver a pedir la lista
-          setReservas((actuales) =>
-            (actuales ?? []).map((r) =>
-              r.id === id ? { ...r, miCalificacion: estrellas } : r,
+          setBookings((current) =>
+            (current ?? []).map((r) =>
+              r.id === id ? { ...r, myRating: stars } : r,
             ),
           );
-          setCalificando(null);
+          setReviewingBooking(null);
         }}
       />
     </View>
@@ -302,11 +302,11 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  titulo: {
+  title: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.text,
@@ -319,51 +319,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: spacing.md,
   },
-  lista: {
+  list: {
     paddingHorizontal: 24,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
   },
-  vacio: {
+  empty: {
     color: colors.textLight,
     fontSize: 12,
   },
-  fila: {
+  row: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 14,
     marginBottom: spacing.lg,
   },
-  foto: {
+  photo: {
     width: 64,
     height: 64,
     borderRadius: radius.sm,
   },
-  textos: {
+  texts: {
     flex: 1,
   },
-  nombre: {
+  name: {
     fontSize: 13,
     fontWeight: "500",
     color: colors.text,
   },
-  detalle: {
+  detail: {
     fontSize: 11,
     color: colors.textLight,
     marginTop: 3,
   },
-  vehiculo: {
+  vehicle: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginTop: 3,
   },
-  precio: {
+  price: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.text,
   },
-  precioTachado: {
+  priceStrikethrough: {
     color: colors.textLight,
     textDecorationLine: "line-through",
   },
@@ -372,36 +372,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: spacing.md,
   },
-  porPagar: {
+  unpaid: {
     fontSize: 11,
     fontWeight: "600",
     color: "#B26A00",
     marginTop: 3,
   },
-  restante: {
+  remaining: {
     fontSize: 11,
     fontWeight: "600",
     color: "#2E7D32",
     marginTop: 3,
   },
-  accion: {
+  action: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.primary,
     marginTop: spacing.sm,
   },
-  accionSecundaria: {
+  secondaryAction: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.sm,
   },
-  confirmar: {
+  confirm: {
     flexDirection: "row",
     alignItems: "baseline",
     gap: spacing.md,
   },
-  calificada: {
+  rated: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,

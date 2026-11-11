@@ -15,48 +15,48 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { AppScreenProps } from "../types/navigation";
 import {
-  Mensaje,
-  enviarMensaje,
-  formatearDia,
-  formatearHoraMensaje,
-  obtenerMensajes,
+  Message,
+  sendMessage,
+  formatDay,
+  formatMessageTime,
+  getMessages,
 } from "../services/messages";
 import { useAuth } from "../context/AuthContext";
-import { useNoLeidos } from "../context/UnreadContext";
+import { useUnread } from "../context/UnreadContext";
 import { colors, radius, spacing } from "../styles/theme";
 
 // Cada cuánto se pregunta al backend si llegaron mensajes nuevos
-const INTERVALO_MS = 4000;
+const INTERVAL_MS = 4000;
 
 // Agrega mensajes sin repetir (el mismo puede llegar al enviarlo y al revisar nuevos)
-const unir = (actuales: Mensaje[], nuevos: Mensaje[]) => {
-  const ids = new Set(actuales.map((m) => m.id));
-  return [...actuales, ...nuevos.filter((m) => !ids.has(m.id))];
+const join = (current: Message[], newItems: Message[]) => {
+  const ids = new Set(current.map((m) => m.id));
+  return [...current, ...newItems.filter((m) => !ids.has(m.id))];
 };
 
 // Chat de una conversación: burbujas y caja para escribir.
 export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
-  const { conversationId, titulo } = route.params;
+  const { conversationId, title: title } = route.params;
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
-  const { actualizar: actualizarNoLeidos } = useNoLeidos();
+  const { update: refreshUnread } = useUnread();
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const [mensajes, setMensajes] = useState<Mensaje[] | null>(null);
-  const [texto, setTexto] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  const [messages, setMessages] = useState<Message[] | null>(null);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Id del último mensaje recibido, para pedir solo los que lleguen después
-  const ultimoId = useRef<number | undefined>(undefined);
+  const lastId = useRef<number | undefined>(undefined);
 
   // Encabezado = nombre de la otra persona
   useEffect(() => {
-    navigation.setOptions({ title: titulo ?? "Chat" });
-  }, [navigation, titulo]);
+    navigation.setOptions({ title: title ?? "Chat" });
+  }, [navigation, title]);
 
-  const recibir = useCallback(
-    (nuevos: Mensaje[]) => {
-      if (nuevos.length > 0) ultimoId.current = nuevos[nuevos.length - 1].id;
-      setMensajes((actuales) => unir(actuales ?? [], nuevos));
+  const receive = useCallback(
+    (newItems: Message[]) => {
+      if (newItems.length > 0) lastId.current = newItems[newItems.length - 1].id;
+      setMessages((current) => join(current ?? [], newItems));
     },
     [],
   );
@@ -65,81 +65,81 @@ export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
   useFocusEffect(
     useCallback(() => {
       if (!token) return;
-      let activo = true;
+      let active = true;
 
-      const revisar = async () => {
+      const check = async () => {
         try {
-          const nuevos = await obtenerMensajes(conversationId, token, ultimoId.current);
-          if (activo) {
-            recibir(nuevos);
+          const newItems = await getMessages(conversationId, token, lastId.current);
+          if (active) {
+            receive(newItems);
             setError(null);
             // Al recibirlos quedan leídos: el número de la pestaña baja de una vez
-            if (nuevos.length > 0) actualizarNoLeidos();
+            if (newItems.length > 0) refreshUnread();
           }
         } catch (e) {
-          if (activo) {
+          if (active) {
             setError(e instanceof Error ? e.message : "No se pudieron cargar los mensajes.");
           }
         }
       };
 
-      revisar();
-      const temporizador = setInterval(revisar, INTERVALO_MS);
+      check();
+      const timer = setInterval(check, INTERVAL_MS);
       return () => {
-        activo = false;
-        clearInterval(temporizador);
+        active = false;
+        clearInterval(timer);
       };
-    }, [conversationId, token, recibir, actualizarNoLeidos]),
+    }, [conversationId, token, receive, refreshUnread]),
   );
 
-  const enviar = async () => {
-    const limpio = texto.trim();
-    if (!limpio || !token || enviando) return;
+  const send = async () => {
+    const trimmed = text.trim();
+    if (!trimmed || !token || sending) return;
 
-    setEnviando(true);
+    setSending(true);
     try {
-      const mensaje = await enviarMensaje(conversationId, limpio, token);
-      recibir([mensaje]);
-      setTexto("");
+      const message = await sendMessage(conversationId, trimmed, token);
+      receive([message]);
+      setText("");
       setError(null);
     } catch (e) {
       // El texto se queda en la caja para que pueda reintentar
       setError(e instanceof Error ? e.message : "No se pudo enviar el mensaje.");
     } finally {
-      setEnviando(false);
+      setSending(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.contenedor}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
       <ScrollView
         ref={scroll}
-        contentContainerStyle={styles.lista}
+        contentContainerStyle={styles.list}
         onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
       >
-        {!mensajes && !error && <ActivityIndicator color={colors.primary} />}
-        {mensajes && mensajes.length === 0 && (
-          <Text style={styles.vacio}>Escribe el primer mensaje.</Text>
+        {!messages && !error && <ActivityIndicator color={colors.primary} />}
+        {messages && messages.length === 0 && (
+          <Text style={styles.empty}>Escribe el primer mensaje.</Text>
         )}
 
-        {(mensajes ?? []).map((m, i) => {
+        {(messages ?? []).map((m, i) => {
           // Separador con la fecha cuando cambia el día
-          const anterior = mensajes?.[i - 1];
-          const nuevoDia =
-            !anterior || anterior.fecha.toDateString() !== m.fecha.toDateString();
+          const previous = messages?.[i - 1];
+          const newDay =
+            !previous || previous.date.toDateString() !== m.date.toDateString();
           return (
             <React.Fragment key={m.id}>
-              {nuevoDia && (
-                <Text style={styles.dia}>{formatearDia(m.fecha)}</Text>
+              {newDay && (
+                <Text style={styles.day}>{formatDay(m.date)}</Text>
               )}
-              <View style={[styles.burbuja, m.mio ? styles.mia : styles.otra]}>
-                <Text style={[styles.texto, m.mio && styles.textoMio]}>{m.texto}</Text>
-                <Text style={[styles.hora, m.mio && styles.horaMia]}>
-                  {formatearHoraMensaje(m.fecha)}
+              <View style={[styles.bubble, m.isMine ? styles.isMine : styles.other]}>
+                <Text style={[styles.text, m.isMine && styles.textMine]}>{m.text}</Text>
+                <Text style={[styles.hour, m.isMine && styles.myHour]}>
+                  {formatMessageTime(m.date)}
                 </Text>
               </View>
             </React.Fragment>
@@ -149,21 +149,21 @@ export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <View style={[styles.barra, { paddingBottom: insets.bottom + spacing.sm }]}>
+      <View style={[styles.bar, { paddingBottom: insets.bottom + spacing.sm }]}>
         <TextInput
-          style={styles.campo}
-          value={texto}
-          onChangeText={setTexto}
+          style={styles.field}
+          value={text}
+          onChangeText={setText}
           placeholder="Escribe un mensaje"
           placeholderTextColor={colors.placeholder}
-          onSubmitEditing={enviar}
+          onSubmitEditing={send}
           returnKeyType="send"
           maxLength={1000}
         />
         <Pressable
-          style={[styles.enviar, (!texto.trim() || enviando) && styles.enviarDeshabilitado]}
-          onPress={enviar}
-          disabled={!texto.trim() || enviando}
+          style={[styles.send, (!text.trim() || sending) && styles.sendDisabled]}
+          onPress={send}
+          disabled={!text.trim() || sending}
         >
           <Feather name="send" size={16} color={colors.white} />
         </Pressable>
@@ -173,45 +173,45 @@ export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  lista: {
+  list: {
     padding: 18,
     gap: spacing.sm,
   },
-  burbuja: {
+  bubble: {
     maxWidth: "78%",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: radius.lg,
   },
-  otra: {
+  other: {
     alignSelf: "flex-start",
     backgroundColor: colors.chip,
   },
-  mia: {
+  isMine: {
     alignSelf: "flex-end",
     backgroundColor: colors.primary,
   },
-  texto: {
+  text: {
     fontSize: 13,
     color: colors.text,
   },
-  textoMio: {
+  textMine: {
     color: colors.white,
   },
-  hora: {
+  hour: {
     fontSize: 10,
     color: colors.textLight,
     marginTop: 4,
   },
-  horaMia: {
+  myHour: {
     color: colors.white,
     opacity: 0.8,
   },
-  barra: {
+  bar: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
-  campo: {
+  field: {
     flex: 1,
     height: 42,
     paddingHorizontal: 16,
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
   },
-  enviar: {
+  send: {
     width: 42,
     height: 42,
     borderRadius: 21,
@@ -238,16 +238,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  enviarDeshabilitado: {
+  sendDisabled: {
     opacity: 0.4,
   },
-  vacio: {
+  empty: {
     fontSize: 13,
     color: colors.textLight,
     textAlign: "center",
     marginTop: spacing.xl,
   },
-  dia: {
+  day: {
     alignSelf: "center",
     fontSize: 11,
     color: colors.textLight,

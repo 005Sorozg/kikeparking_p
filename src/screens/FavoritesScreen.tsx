@@ -13,90 +13,90 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MainTabScreenProps } from "../types/navigation";
-import { agruparPorBarrio } from "../services/favorites";
-import { useFavoritos } from "../context/FavoritesContext";
+import { groupByNeighborhood } from "../services/favorites";
+import { useFavorites } from "../context/FavoritesContext";
 import { ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
-const MARGEN = 18;
-const ESPACIO = 14;
+const MARGIN = 18;
+const GAP = 14;
 
 // Favoritos: una tarjeta por barrio con los parqueaderos guardados.
 // Al bajar, el título grande pasa a la barra de arriba (Estado A → B).
 export function FavoritesScreen({ navigation }: MainTabScreenProps<"Favorites">) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { favoritos, cargados, error, recargar } = useFavoritos();
-  const [compacto, setCompacto] = useState(false);
-  const anchoTarjeta = (width - MARGEN * 2 - ESPACIO) / 2;
-  const colecciones = agruparPorBarrio(favoritos);
+  const { favorites: favorites, loaded: loaded, error, reload: reload } = useFavorites();
+  const [compact, setCompact] = useState(false);
+  const cardWidth = (width - MARGIN * 2 - GAP) / 2;
+  const collections = groupByNeighborhood(favorites);
 
   // Al volver a la pestaña se actualiza (ej: si guardó algo desde otro celular).
   useFocusEffect(
     useCallback(() => {
-      recargar();
-    }, [recargar]),
+      reload();
+    }, [reload]),
   );
 
-  const alHacerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
-    setCompacto(e.nativeEvent.contentOffset.y > 40);
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
+    setCompact(e.nativeEvent.contentOffset.y > 40);
 
   return (
-    <View style={styles.contenedor}>
+    <View style={styles.container}>
       <View
         style={[
-          styles.barra,
+          styles.bar,
           { paddingTop: insets.top + spacing.sm },
-          compacto && styles.barraCompacta,
+          compact && styles.barCompact,
         ]}
       >
-        <Text style={[styles.tituloCompacto, !compacto && styles.oculto]}>
+        <Text style={[styles.titleCompact, !compact && styles.hidden]}>
           Favoritos
         </Text>
       </View>
 
       <FlatList
-        data={colecciones}
-        keyExtractor={(item) => item.barrio}
+        data={collections}
+        keyExtractor={(item) => item.neighborhood}
         numColumns={2}
-        onScroll={alHacerScroll}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
-        columnWrapperStyle={{ gap: ESPACIO }}
-        contentContainerStyle={styles.lista}
-        ListHeaderComponent={<Text style={styles.titulo}>Favoritos</Text>}
+        columnWrapperStyle={{ gap: GAP }}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={<Text style={styles.title}>Favoritos</Text>}
         ListEmptyComponent={
-          !cargados ? (
-            <ActivityIndicator color={colors.primary} style={styles.cargando} />
+          !loaded ? (
+            <ActivityIndicator color={colors.primary} style={styles.loading} />
           ) : (
-            <Text style={styles.vacio}>
+            <Text style={styles.empty}>
               {error ??
                 "Aún no tienes favoritos. Toca el corazón de un parqueadero para guardarlo aquí."}
             </Text>
           )
         }
         renderItem={({ item }) => {
-          const total = item.parqueaderos.length;
+          const total = item.mockParkingSpots.length;
           return (
             <Pressable
-              style={{ width: anchoTarjeta, marginBottom: spacing.md }}
+              style={{ width: cardWidth, marginBottom: spacing.md }}
               onPress={() =>
-                navigation.navigate("FavoriteCollection", { barrio: item.barrio })
+                navigation.navigate("FavoriteCollection", { neighborhood: item.neighborhood })
               }
             >
               <ImagePlaceholder
                 style={{
-                  width: anchoTarjeta,
-                  height: anchoTarjeta,
+                  width: cardWidth,
+                  height: cardWidth,
                   borderRadius: radius.lg,
                 }}
                 iconSize={36}
                 // La foto de la tarjeta es la del favorito más reciente de ese barrio
-                source={item.parqueaderos[0].imagen}
+                source={item.mockParkingSpots[0].image}
               />
-              <Text style={styles.nombre} numberOfLines={1}>
-                {item.barrio}
+              <Text style={styles.name} numberOfLines={1}>
+                {item.neighborhood}
               </Text>
-              <Text style={styles.subtitulo}>
+              <Text style={styles.subtitle}>
                 {total} {total === 1 ? "guardado" : "guardados"}
               </Text>
             </Pressable>
@@ -108,36 +108,36 @@ export function FavoritesScreen({ navigation }: MainTabScreenProps<"Favorites">)
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  barra: {
+  bar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: MARGEN + 6,
+    paddingHorizontal: MARGIN + 6,
     paddingBottom: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: "transparent",
     backgroundColor: colors.white,
   },
-  barraCompacta: {
+  barCompact: {
     borderBottomColor: colors.borderLight,
   },
-  tituloCompacto: {
+  titleCompact: {
     fontSize: 20,
     fontWeight: "700",
     color: colors.text,
   },
-  oculto: {
+  hidden: {
     opacity: 0,
   },
-  lista: {
-    paddingHorizontal: MARGEN,
+  list: {
+    paddingHorizontal: MARGIN,
     paddingBottom: spacing.xl,
   },
-  titulo: {
+  title: {
     fontSize: 28,
     fontWeight: "700",
     color: colors.text,
@@ -145,21 +145,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
-  nombre: {
+  name: {
     fontSize: 13,
     fontWeight: "500",
     color: colors.text,
     marginTop: spacing.sm,
   },
-  subtitulo: {
+  subtitle: {
     fontSize: 11,
     color: colors.textLight,
     marginTop: 2,
   },
-  cargando: {
+  loading: {
     marginTop: spacing.xl,
   },
-  vacio: {
+  empty: {
     fontSize: 13,
     color: colors.textLight,
     textAlign: "center",
