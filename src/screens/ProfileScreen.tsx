@@ -44,9 +44,9 @@ const OPTIONS: {
 export function ProfileScreen({ navigation }: MainTabScreenProps<"Profile">) {
   const insets = useSafeAreaInsets();
   const {
-    user: user,
+    user,
     token,
-    updateUser: updateUser,
+    updateUser,
     logout: clearSession,
   } = useAuth();
   const isOwner = user?.role === "propietario";

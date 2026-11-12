@@ -50,7 +50,7 @@ export function HomeScreen({ navigation }: MainTabScreenProps<"Explore">) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Favoritos compartidos con el detalle y la pestaña Favoritos (vienen del backend).
-  const { isFavorite: isFavorite, toggleFavorite: toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   // Se ejecuta al abrir la pantalla, al volver a ella (ej: después de publicar un
   // parqueadero) y cada vez que cambia un filtro. El retraso de 300 ms evita

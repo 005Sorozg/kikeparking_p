@@ -30,7 +30,7 @@ const formatExpiry = (text: string) => {
 
 // Pago de una reserva pendiente. La pasarela es simulada: no se cobra dinero real.
 export function PaymentScreen({ route, navigation }: AppScreenProps<"Payment">) {
-  const { bookingId: bookingId, title: title, total } = route.params;
+  const { bookingId, title, total } = route.params;
   const paymentDeadline = new Date(route.params.paymentDeadline);
   const { token } = useAuth();
 

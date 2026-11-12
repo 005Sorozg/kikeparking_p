@@ -13,8 +13,8 @@ export function FavoriteCollectionScreen({
   route,
   navigation,
 }: AppScreenProps<"FavoriteCollection">) {
-  const { neighborhood: neighborhood } = route.params;
-  const { favorites: favorites, toggleFavorite: toggleFavorite } = useFavorites();
+  const { neighborhood } = route.params;
+  const { favorites, toggleFavorite } = useFavorites();
   const list = favorites.filter((p) => p.neighborhood === neighborhood);
   const focused = useIsFocused();
 

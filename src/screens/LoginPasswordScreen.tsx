@@ -17,7 +17,7 @@ export function LoginPasswordScreen({
   navigation,
   route,
 }: AppScreenProps<"LoginPassword">) {
-  const { login: login } = useAuth();
+  const { login } = useAuth();
   const [identifier, setIdentifier] = useState(route.params.identifier);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

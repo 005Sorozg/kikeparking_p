@@ -13,8 +13,8 @@ const PHASES: Record<BookingPhase, { text: string; color: string; backdrop: stri
 };
 
 // Etiqueta de color con el estado de una reserva.
-export function BookingPhaseTag({ phase: phase }: { phase: BookingPhase }) {
-  const { text: text, color, backdrop: backdrop } = PHASES[phase];
+export function BookingPhaseTag({ phase }: { phase: BookingPhase }) {
+  const { text, color, backdrop } = PHASES[phase];
 
   return (
     <View style={[styles.label, { backgroundColor: backdrop }]}>

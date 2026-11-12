@@ -33,10 +33,10 @@ export function ParkingDetailScreen({
   const [spot, setSpot] = useState<ParkingSpot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
-  const { user: user, token } = useAuth();
+  const { user, token } = useAuth();
   const [openingChat, setOpeningChat] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
-  const { isFavorite: isFavorite, toggleFavorite: toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite } = useFavorites();
   // Reseñas de los conductores (se cargan aparte: si fallan, el detalle igual se muestra)
   const [reviews, setReviews] = useState<Review[]>([]);
 

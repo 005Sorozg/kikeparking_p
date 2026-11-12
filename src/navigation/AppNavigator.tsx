@@ -49,9 +49,9 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 // La barra de abajo con las 4 pestañas principales.
 function MainTabs() {
-  const { user: user } = useAuth();
+  const { user } = useAuth();
   const isOwner = user?.role === "propietario";
-  const { unread: unread } = useUnread();
+  const { unread } = useUnread();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -121,7 +121,7 @@ function MainTabs() {
 }
 
 export function AppNavigator() {
-  const { user: user, loading: loading } = useAuth();
+  const { user, loading } = useAuth();
 
   // Si la sesión se cierra estando dentro de la app (ej: el backend rechazó el token
   // porque venció), se vuelve al login.

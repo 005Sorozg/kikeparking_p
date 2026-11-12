@@ -62,8 +62,8 @@ function groupByNeighborhood(mockParkingSpots: ParkingSpot[]): NeighborhoodGroup
 // Mapa de Explorar. Alejado: burbujas por barrio con la cantidad. Cerca: el precio
 // de cada parqueadero; al tocarlo sale una tarjeta que abre el detalle.
 export function ExploreMap({
-  filters: filters,
-  onOpen: onOpen,
+  filters,
+  onOpen,
 }: {
   filters: ParkingFilters;
   onOpen: (id: string) => void;

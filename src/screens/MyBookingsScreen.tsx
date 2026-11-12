@@ -41,7 +41,7 @@ const FILTERS: { id: BookingPhase; includes: BookingPhase[]; label: string; empt
 
 // Reservas: el conductor ve las que hizo y el propietario las que recibió.
 export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
-  const { user: user, token } = useAuth();
+  const { user, token } = useAuth();
   const isOwner = user?.role === "propietario";
   const [filter, setFilter] = useState<BookingPhase>("upcoming");
   const [bookings, setBookings] = useState<Booking[] | null>(null);

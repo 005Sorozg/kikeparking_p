@@ -26,7 +26,7 @@ const GAP = 14;
 export function FavoritesScreen({ navigation }: MainTabScreenProps<"Favorites">) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { favorites: favorites, loaded: loaded, error, reload: reload } = useFavorites();
+  const { favorites, loaded, error, reload } = useFavorites();
   const [compact, setCompact] = useState(false);
   const cardWidth = (width - MARGIN * 2 - GAP) / 2;
   const collections = groupByNeighborhood(favorites);
