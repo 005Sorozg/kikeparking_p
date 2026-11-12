@@ -51,6 +51,13 @@
             "extraProguardRules": "-keep class * extends androidx.room.RoomDatabase { <init>(); }"
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#DC3B22"
+        }
       ]
     ],
     "extra": {

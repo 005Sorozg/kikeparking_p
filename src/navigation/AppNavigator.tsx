@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, AppState, View } from "react-native";
 import {
   NavigationContainer,
   createNavigationContainerRef,
@@ -15,6 +15,7 @@ import { HomeScreen } from "../screens/HomeScreen";
 import { MyParkingsScreen } from "../screens/MyParkingsScreen";
 import { MyParkingDetailScreen } from "../screens/MyParkingDetailScreen";
 import { useAuth } from "../context/AuthContext";
+import { clearReminders, onReminderTapped, refreshReminders } from "../services/reminders";
 import { useUnread } from "../context/UnreadContext";
 import { FavoritesScreen } from "../screens/FavoritesScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
@@ -121,7 +122,7 @@ function MainTabs() {
 }
 
 export function AppNavigator() {
-  const { user, loading } = useAuth();
+  const { user, token, loading } = useAuth();
 
   // Si la sesión se cierra estando dentro de la app (ej: el backend rechazó el token
   // porque venció), se vuelve al login.
@@ -133,6 +134,37 @@ export function AppNavigator() {
       navigationRef.reset({ index: 0, routes: [{ name: "Login" }] });
     }
   }, [user, loading]);
+
+  // Recordatorios de reservas: se programan al entrar y cada vez que se vuelve
+  // a abrir la app (por si cambió algo mientras estaba cerrada).
+  useEffect(() => {
+    if (loading) return;
+    if (!user || !token) {
+      clearReminders();
+      return;
+    }
+
+    const isOwner = user.role === "propietario";
+    refreshReminders(token, isOwner);
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") refreshReminders(token, isOwner);
+    });
+    return () => subscription.remove();
+  }, [user, token, loading]);
+
+  // Al tocar un recordatorio se abre "Mis reservas"
+  useEffect(() => {
+    if (!user) return;
+
+    // Si la app estaba cerrada, se espera a que la navegación esté lista
+    const openMyBookings = (attempts = 10) => {
+      if (navigationRef.isReady()) navigationRef.navigate("MyBookings");
+      else if (attempts > 0) setTimeout(() => openMyBookings(attempts - 1), 300);
+    };
+
+    return onReminderTapped(() => openMyBookings());
+  }, [user]);
 
   // Mientras se lee la sesión guardada no se sabe si empezar en Login o en Home.
   if (loading) {

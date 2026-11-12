@@ -27,6 +27,7 @@ import { BookingPhaseTag } from "../components/BookingPhaseTag";
 import { ReviewModal } from "../components/ReviewModal";
 import { Stars } from "../components/Stars";
 import { useAuth } from "../context/AuthContext";
+import { syncReminders } from "../services/reminders";
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
@@ -76,6 +77,8 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
           if (active) {
             setBookings(data);
             setError(null);
+            // De paso, los recordatorios quedan al día con lo que se ve aquí
+            syncReminders(data, isOwner);
           }
         })
         .catch((e) => {
@@ -98,9 +101,10 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
     setCancelling(id);
     try {
       const updated = await cancelBooking(id, token);
-      setBookings((current) =>
-        (current ?? []).map((r) => (r.id === id ? updated : r)),
-      );
+      const list = (bookings ?? []).map((r) => (r.id === id ? updated : r));
+      setBookings(list);
+      // La reserva cancelada ya no debe recordar nada
+      syncReminders(list, isOwner);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cancelar la reserva.");
