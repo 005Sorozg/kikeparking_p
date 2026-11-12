@@ -70,7 +70,7 @@ export function useUnread(): UnreadContextValue {
   const context = useContext(UnreadContext);
 
   if (!context) {
-    throw new Error("useNoLeidos debe usarse dentro de un UnreadProvider");
+    throw new Error("useUnread debe usarse dentro de un UnreadProvider");
   }
 
   return context;
