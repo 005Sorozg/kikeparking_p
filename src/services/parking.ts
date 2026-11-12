@@ -91,7 +91,7 @@ export const mockParkingSpots: MockParkingSpot[] = [
     rating: 4.8,
     favorite: false,
   },
-  
+
 ];
 
 
@@ -155,6 +155,29 @@ export interface ParkingSpotApi {
   longitude: number | null;
   // Solo en /nearby
   distanceKm?: number;
+  // Solo en el detalle (GET /parking-spots/:id)
+  owner?: {
+    id: number;
+    name: string;
+    avatarUrl: string | null;
+    rating: number;
+    reviewCount: number;
+    parkingSpotCount: number;
+    memberSince: string | null;
+  };
+}
+
+// Dueño del parqueadero (solo viene en el detalle)
+export interface ParkingSpotOwner {
+  id: number;
+  name: string;
+  photo?: ImageSourcePropType;
+  // Promedio de las reseñas de todos sus parqueaderos
+  rating: number;
+  reviewCount: number;
+  parkingSpotCount: number;
+  // Desde cuándo usa KikeParking
+  memberSince: Date | null;
 }
 
 // Punto en el mapa
@@ -183,6 +206,8 @@ export interface ParkingSpot {
   photos: ParkingPhoto[];
   // Portada (la primera foto). Si no hay fotos queda vacía y se ve el ícono de imagen.
   image?: ImageSourcePropType;
+  // Solo en el detalle
+  owner?: ParkingSpotOwner;
 }
 
 // Cantidad máxima de fotos por parqueadero (la misma regla del backend)
@@ -213,6 +238,17 @@ export const toParkingSpot = (p: ParkingSpotApi): ParkingSpot => ({
   ownerId: p.ownerId,
   photos: p.photos ?? [],
   image: p.photos?.[0] ? { uri: p.photos[0].url } : undefined,
+  owner: p.owner
+    ? {
+      id: p.owner.id,
+      name: p.owner.name,
+      photo: p.owner.avatarUrl ? { uri: p.owner.avatarUrl } : undefined,
+      rating: p.owner.rating,
+      reviewCount: p.owner.reviewCount,
+      parkingSpotCount: p.owner.parkingSpotCount,
+      memberSince: p.owner.memberSince ? new Date(p.owner.memberSince) : null,
+    }
+    : undefined,
 });
 
 export interface ParkingFilters {

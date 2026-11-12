@@ -16,11 +16,11 @@ import {
   formatPrice,
   getParkingSpot,
 } from "../services/parking";
-import { ImagePlaceholder, PrimaryButton } from "../components/ui";
+import { AvatarPlaceholder, ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { ReviewItem } from "../components/ReviewItem";
 import { FeatureList } from "../components/ParkingFeatures";
-import { Review, getReviews } from "../services/reviews";
+import { Review, formatReviewMonth, getReviews } from "../services/reviews";
 import { useFavorites } from "../context/FavoritesContext";
 import { openConversation } from "../services/messages";
 import { colors, radius, spacing } from "../styles/theme";
@@ -47,7 +47,7 @@ export function ParkingDetailScreen({
       .then((list) => {
         if (active) setReviews(list);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     getParkingSpot(route.params.parkingSpotId)
       .then((result) => {
@@ -187,6 +187,36 @@ export function ParkingDetailScreen({
       {/* Lo que marcó el propietario: vehículos, techado, vigilancia... */}
       <Text style={styles.offersSection}>Lo que ofrece</Text>
       <FeatureList features={spot.features} />
+
+      {/* Quién es el dueño, para que el conductor sepa con quién va a tratar */}
+      {spot.owner && (
+        <>
+          <Text style={styles.offersSection}>Propietario</Text>
+          <View style={styles.owner}>
+            <AvatarPlaceholder size={52} source={spot.owner.photo} />
+            <View style={styles.ownerTexts}>
+              <Text style={styles.ownerName}>{spot.owner.name}</Text>
+              <View style={styles.ownerLine}>
+                <Ionicons name="star" size={12} color={colors.black} />
+                <Text style={styles.ownerDetail}>
+                  {spot.owner.reviewCount > 0
+                    ? `${spot.owner.rating.toFixed(1)} · ${spot.owner.reviewCount} ${spot.owner.reviewCount === 1 ? "reseña" : "reseñas"}`
+                    : "Sin calificaciones todavía"}
+                </Text>
+              </View>
+              <Text style={styles.ownerDetail}>
+                {spot.owner.parkingSpotCount}{" "}
+                {spot.owner.parkingSpotCount === 1 ? "parqueadero publicado" : "parqueaderos publicados"}
+              </Text>
+              {spot.owner.memberSince && (
+                <Text style={styles.ownerDetail}>
+                  En KikeParking desde {formatReviewMonth(spot.owner.memberSince)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </>
+      )}
 
       <View style={styles.button}>
         <PrimaryButton
@@ -368,11 +398,38 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
   },
+  owner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  ownerTexts: {
+    flex: 1,
+    gap: 2,
+  },
+  ownerName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  ownerLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  ownerDetail: {
+    fontSize: 12,
+    color: colors.textLight,
+  },
   reviewsSection: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
     marginTop: spacing.xl,
   },
-  
+
 });
