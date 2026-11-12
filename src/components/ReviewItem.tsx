@@ -6,7 +6,7 @@ import { Review, formatReviewMonth } from "../services/reviews";
 import { colors, spacing } from "../styles/theme";
 
 // Una reseña: foto y nombre de quien la escribió, estrellas, fecha y comentario.
-export function ReviewItem({ review: review }: { review: Review }) {
+export function ReviewItem({ review }: { review: Review }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>

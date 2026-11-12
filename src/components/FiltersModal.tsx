@@ -30,9 +30,9 @@ const VEHICLES: { value: ExtraFilters["vehicle"]; text: string }[] = [
 // Ventana de filtros de Explorar. Los cambios solo se aplican al tocar "Ver resultados".
 export function FiltersModal({
   visible,
-  filters: filters,
-  onApply: onApply,
-  onClose: onClose,
+  filters,
+  onApply,
+  onClose,
 }: {
   visible: boolean;
   filters: ExtraFilters;

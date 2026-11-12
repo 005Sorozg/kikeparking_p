@@ -43,7 +43,7 @@ const INTERVAL_MS = 10000;
 // Mensajes: chats con conductores o propietarios. Mantener presionado abre el menú.
 export function MessagesScreen({ navigation }: MainTabScreenProps<"Messages">) {
   const insets = useSafeAreaInsets();
-  const { user: user, token } = useAuth();
+  const { user, token } = useAuth();
   const { update: refreshUnread } = useUnread();
   const [filter, setFilter] = useState<Filter>("all");
   const [chats, setChats] = useState<Conversation[] | null>(null);

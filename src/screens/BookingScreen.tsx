@@ -24,6 +24,7 @@ import {
   getBusySlots,
 } from "../services/bookings";
 import { useAuth } from "../context/AuthContext";
+import { refreshReminders } from "../services/reminders";
 import { Chip, ImagePlaceholder, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
@@ -115,7 +116,7 @@ export function BookingScreen({
   route,
   navigation,
 }: AppScreenProps<"Booking">) {
-  const { user: user, token } = useAuth();
+  const { user, token } = useAuth();
   const [spot, setSpot] = useState<ParkingSpot | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -244,6 +245,8 @@ export function BookingScreen({
         { parkingSpotId: spot.id, vehicle, start, hours: bookingHours },
         token,
       );
+      // Programa el aviso de "te quedan 3 minutos para pagar"
+      refreshReminders(token, false);
       navigation.replace("Payment", {
         bookingId: booking.id,
         title: spot.title,

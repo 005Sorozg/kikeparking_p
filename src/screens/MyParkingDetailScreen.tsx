@@ -260,7 +260,7 @@ export function MyParkingDetailScreen({
   // Una reserva: quién (con su calificación), cuándo, vehículo y valor.
   function BookingRow({
     booking: r,
-    onRate: onRate,
+    onRate,
   }: {
     booking: Booking;
     onRate: (booking: Booking) => void;

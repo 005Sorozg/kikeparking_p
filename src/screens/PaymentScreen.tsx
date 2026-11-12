@@ -11,6 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import type { AppScreenProps } from "../types/navigation";
 import { formatPrice } from "../services/parking";
 import { Booking, payBooking, timeToPay } from "../services/bookings";
+import { refreshReminders } from "../services/reminders";
 import { useAuth } from "../context/AuthContext";
 import { Field, PrimaryButton } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
@@ -30,7 +31,7 @@ const formatExpiry = (text: string) => {
 
 // Pago de una reserva pendiente. La pasarela es simulada: no se cobra dinero real.
 export function PaymentScreen({ route, navigation }: AppScreenProps<"Payment">) {
-  const { bookingId: bookingId, title: title, total } = route.params;
+  const { bookingId, title, total } = route.params;
   const paymentDeadline = new Date(route.params.paymentDeadline);
   const { token } = useAuth();
 
@@ -79,6 +80,8 @@ export function PaymentScreen({ route, navigation }: AppScreenProps<"Payment">) 
       setPaid(
         await payBooking(bookingId, { cardNumber, expiry, cvc, name: name.trim() }, token),
       );
+      // Ya pagada: se cambia el aviso de pago por los de inicio y fin de la reserva
+      refreshReminders(token, false);
     } catch (e) {
       // Ej: "El pago fue rechazado: Tarjeta rechazada por el banco"
       setError(e instanceof Error ? e.message : "No se pudo procesar el pago.");

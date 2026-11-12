@@ -80,7 +80,7 @@ const OWNER_QUESTIONS: Question[] = [
 ];
 
 // Pregunta que se abre y se cierra al tocarla
-function QuestionItem({ question: question, response: response }: Question) {
+function QuestionItem({ question, response }: Question) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -104,7 +104,7 @@ function QuestionItem({ question: question, response: response }: Question) {
 // Obtén ayuda (conductor y propietario): preguntas frecuentes según el rol y
 // un formulario que guarda el mensaje en POST /support-requests.
 export function HelpScreen() {
-  const { user: user, token } = useAuth();
+  const { user, token } = useAuth();
   const isOwner = user?.role === "propietario";
 
   const questions = [

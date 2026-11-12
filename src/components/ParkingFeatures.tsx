@@ -23,7 +23,7 @@ export const vehiclesText = (c: Features) =>
       : "Solo motos";
 
 // Detalle del parqueadero: qué ofrece, con su ícono.
-export function FeatureList({ features: features }: { features: Features }) {
+export function FeatureList({ features }: { features: Features }) {
   const extras = EXTRAS.filter((e) => features[e.key]);
 
   return (
@@ -99,9 +99,9 @@ export function FeaturesPicker({
 
 // Botón que se marca y desmarca (con borde oscuro cuando está activo).
 export function Option({
-  text: text,
-  icon: icon,
-  active: active,
+  text,
+  icon,
+  active,
   onPress,
 }: {
   text: string;

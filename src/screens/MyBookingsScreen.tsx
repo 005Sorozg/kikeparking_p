@@ -27,6 +27,7 @@ import { BookingPhaseTag } from "../components/BookingPhaseTag";
 import { ReviewModal } from "../components/ReviewModal";
 import { Stars } from "../components/Stars";
 import { useAuth } from "../context/AuthContext";
+import { syncReminders } from "../services/reminders";
 import { Chip, ImagePlaceholder } from "../components/ui";
 import { colors, radius, spacing } from "../styles/theme";
 
@@ -41,7 +42,7 @@ const FILTERS: { id: BookingPhase; includes: BookingPhase[]; label: string; empt
 
 // Reservas: el conductor ve las que hizo y el propietario las que recibió.
 export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
-  const { user: user, token } = useAuth();
+  const { user, token } = useAuth();
   const isOwner = user?.role === "propietario";
   const [filter, setFilter] = useState<BookingPhase>("upcoming");
   const [bookings, setBookings] = useState<Booking[] | null>(null);
@@ -76,6 +77,8 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
           if (active) {
             setBookings(data);
             setError(null);
+            // De paso, los recordatorios quedan al día con lo que se ve aquí
+            syncReminders(data, isOwner);
           }
         })
         .catch((e) => {
@@ -98,9 +101,10 @@ export function MyBookingsScreen({ navigation }: AppScreenProps<"MyBookings">) {
     setCancelling(id);
     try {
       const updated = await cancelBooking(id, token);
-      setBookings((current) =>
-        (current ?? []).map((r) => (r.id === id ? updated : r)),
-      );
+      const list = (bookings ?? []).map((r) => (r.id === id ? updated : r));
+      setBookings(list);
+      // La reserva cancelada ya no debe recordar nada
+      syncReminders(list, isOwner);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cancelar la reserva.");

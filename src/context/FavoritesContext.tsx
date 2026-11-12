@@ -30,7 +30,7 @@ const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 // Comparte los favoritos entre Explorar, el detalle y la pestaña Favoritos:
 // si se marca el corazón en una pantalla, las demás se enteran sin recargar.
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const { user: user, token } = useAuth();
+  const { user, token } = useAuth();
   const isDriver = user?.role === "conductor";
   const [favorites, setFavorites] = useState<ParkingSpot[]>([]);
   const [loaded, setLoaded] = useState(false);

@@ -14,7 +14,7 @@ import { colors, spacing } from "../styles/theme";
 // Configuración de la cuenta (conductor y propietario): editar nombre y correo
 // y cambiar la contraseña.
 export function AccountSettingsScreen() {
-  const { user: user, token, updateUser: updateUser } = useAuth();
+  const { user, token, updateUser } = useAuth();
 
   // Datos personales
   const [name, setName] = useState(user?.name ?? "");

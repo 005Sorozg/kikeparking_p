@@ -36,7 +36,7 @@ const join = (current: Message[], newItems: Message[]) => {
 
 // Chat de una conversación: burbujas y caja para escribir.
 export function ChatScreen({ route, navigation }: AppScreenProps<"Chat">) {
-  const { conversationId, title: title } = route.params;
+  const { conversationId, title } = route.params;
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const { update: refreshUnread } = useUnread();

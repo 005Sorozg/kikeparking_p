@@ -22,8 +22,8 @@ const STAR_LABELS = ["", "Muy mala", "Mala", "Regular", "Buena", "Excelente"];
 // Ventana para calificar una reserva completada.
 // "titulo" cambia según quién califica: el parqueadero o al conductor.
 export function ReviewModal({
-  bookingId: bookingId,
-  title: title,
+  bookingId,
+  title,
   onClose,
   onRated,
 }: {
